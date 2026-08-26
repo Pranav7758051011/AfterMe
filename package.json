@@ -1,0 +1,22 @@
+{
+  "name": "afterme-monorepo",
+  "version": "1.0.0",
+  "description": "AfterMe — Proactive AI Memory Assistant",
+  "private": true,
+  "scripts": {
+    "dev": "node start-dev.js",
+    "backend": "npm --prefix backend run dev",
+    "web": "npm --prefix apps/web run dev",
+    "mobile": "npm --prefix apps/mobile start",
+    "mobile:web": "npm --prefix apps/mobile run web",
+    "test": "node test-full-demo.js"
+  },
+  "keywords": [
+    "gemini",
+    "ai-memory",
+    "proactive-assistant",
+    "firebase"
+  ],
+  "author": "AfterMe Team",
+  "license": "MIT"
+}

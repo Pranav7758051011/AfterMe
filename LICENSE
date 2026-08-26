@@ -1,0 +1,56 @@
+PROPRIETARY SOURCE-AVAILABLE & RESTRICTED USE LICENSE
+
+Copyright (c) 2026 Pranav Bade, Rajdeep Rathod, and Vedant Soni.
+All Rights Reserved.
+
+==============================================================================
+TERMS AND CONDITIONS FOR USE, REPRODUCTION, MODIFICATION, AND DISTRIBUTION
+==============================================================================
+
+1. GRANT OF RESTRICTED LICENSE
+   This software, including all source code, documentation, architectures, 
+   design systems, multimodal assets, and associated intellectual property 
+   (the "Software"), is the exclusive proprietary property of:
+     - Pranav Bade
+     - Rajdeep Rathod
+     - Vedant Soni
+   (collectively referred to as the "Authors").
+
+2. STRICT PROHIBITION ON MODIFICATIONS AND USE
+   Except with explicit, prior written authorization signed by ALL Authors 
+   (Pranav Bade, Rajdeep Rathod, and Vedant Soni):
+   
+   a. NO RIGHT TO MODIFY: No person, entity, or third party is permitted to 
+      modify, edit, fork, adapt, alter, reverse-engineer, decompile, or create 
+      derivative works from any part of this Software or repository.
+      
+   b. NO RIGHT TO DISTRIBUTE OR REDISTRIBUTE: No person, entity, or third party 
+      may distribute, publish, sublicense, mirror, sell, monetize, or transfer 
+      copies of this Software in source or binary form.
+      
+   c. NO COMMERCIAL OR UNLICENSED DEPLOYMENT: No person or organization may 
+      deploy, host, run, or utilize this Software in any production or commercial 
+      environment without a formal commercial license granted in writing by the Authors.
+
+3. PERMITTED EVALUATION
+   Designated judges, evaluators, and reviewers of the Google Gemini AI Hackathon 
+   are granted a non-exclusive, non-transferable, revocable license strictly 
+   for the sole purpose of assessing, testing, judging, and running the Software 
+   during the competition evaluation period.
+
+4. TERMINATION
+   Any breach of these terms immediately and automatically terminates all 
+   evaluation permissions and constitutes an infringement of copyright and 
+   intellectual property rights enforceable under applicable law.
+
+5. DISCLAIMER OF WARRANTY
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+   FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL 
+   THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY ARISING 
+   FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE THEREOF.
+
+==============================================================================
+For permissions, licensing inquiries, or collaboration requests, contact:
+Pranav Bade | Rajdeep Rathod | Vedant Soni
+==============================================================================
