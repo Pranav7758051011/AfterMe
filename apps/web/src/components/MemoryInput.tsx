@@ -1,6 +1,10 @@
 import React, { useState, useRef } from 'react';
-import { Sparkles, Mic, MicOff, Send, CheckCircle2, ShieldAlert, Camera, Image, X, Car } from 'lucide-react';
+import { 
+  Sparkles, Mic, MicOff, Send, CheckCircle2, ShieldAlert, 
+  Camera, Video, Image as ImageIcon, X, Car, Film, AlertCircle 
+} from 'lucide-react';
 import { useSpeechToText } from '../hooks/useSpeechToText';
+import { MediaCaptureModal } from './MediaCaptureModal';
 
 interface MemoryInputProps {
   onSave: (text: string, options?: { imageUrl?: string; imageBase64?: string; latitude?: number; longitude?: number }) => Promise<{ memory: any; extraction: any }>;
@@ -19,51 +23,43 @@ const EXAMPLE_PROMPTS = [
 
 export const MemoryInput: React.FC<MemoryInputProps> = ({ onSave, currentLocation, userLatitude, userLongitude }) => {
   const [text, setText] = useState('');
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [attachedMedia, setAttachedMedia] = useState<{ type: 'image' | 'video'; base64: string; mimeType: string } | null>(null);
+  const [isMediaModalOpen, setIsMediaModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lastExtraction, setLastExtraction] = useState<any | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { isListening, isSupported, toggleListening } = useSpeechToText((transcript) => {
+  const { isListening, isSupported, errorMessage: micError, toggleListening } = useSpeechToText((transcript) => {
     setText((prev) => (prev ? `${prev} ${transcript}` : transcript));
   });
-
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const base64 = reader.result as string;
-        setSelectedImage(base64);
-        if (!text.trim()) {
-          setText('Stored item with attached photo at ' + currentLocation);
-        }
-      };
-      reader.readAsDataURL(file);
-    }
-  };
 
   const handleQuickParkCar = () => {
     setText(`Parked my vehicle at ${currentLocation}`);
   };
 
+  const handleMediaCaptured = (media: { type: 'image' | 'video'; base64: string; mimeType: string }) => {
+    setAttachedMedia(media);
+    if (!text.trim()) {
+      setText(media.type === 'video' ? `Recorded video memory at ${currentLocation}` : `Stored photo memory at ${currentLocation}`);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if ((!text.trim() && !selectedImage) || isSubmitting) return;
+    if ((!text.trim() && !attachedMedia) || isSubmitting) return;
 
     try {
       setIsSubmitting(true);
-      const promptText = text.trim() || (selectedImage ? `Stored item photo at ${currentLocation}` : '');
+      const promptText = text.trim() || (attachedMedia ? `Saved ${attachedMedia.type} at ${currentLocation}` : '');
       const res = await onSave(promptText, {
-        imageBase64: selectedImage || undefined,
+        imageBase64: attachedMedia?.base64,
+        imageUrl: attachedMedia?.type === 'video' ? attachedMedia.base64 : undefined,
         latitude: userLatitude,
         longitude: userLongitude,
       });
 
       setLastExtraction(res.extraction);
       setText('');
-      setSelectedImage(null);
-      if (fileInputRef.current) fileInputRef.current.value = '';
+      setAttachedMedia(null);
 
       // Auto-hide feedback after 6s
       setTimeout(() => setLastExtraction(null), 6000);
@@ -102,17 +98,60 @@ export const MemoryInput: React.FC<MemoryInputProps> = ({ onSave, currentLocatio
         </div>
       </div>
 
-      {/* Image Preview if uploaded */}
-      {selectedImage && (
+      {/* Mic Permission / Error Banner */}
+      {micError && (
+        <div
+          style={{
+            padding: '8px 12px',
+            background: 'rgba(245, 158, 11, 0.15)',
+            border: '1px solid rgba(245, 158, 11, 0.4)',
+            borderRadius: '8px',
+            color: '#fbbf24',
+            fontSize: '0.78rem',
+            marginBottom: '10px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+          }}
+        >
+          <AlertCircle size={14} />
+          <span>{micError}</span>
+        </div>
+      )}
+
+      {/* Attached Media Thumbnail Preview (Photo or Video) */}
+      {attachedMedia && (
         <div style={{ position: 'relative', display: 'inline-block', marginBottom: '10px' }}>
-          <img
-            src={selectedImage}
-            alt="Memory attachment"
-            style={{ width: '90px', height: '90px', objectFit: 'cover', borderRadius: '10px', border: '2px solid var(--accent-primary)' }}
-          />
+          {attachedMedia.type === 'video' ? (
+            <div
+              style={{
+                width: '120px',
+                height: '80px',
+                borderRadius: '10px',
+                border: '2px solid var(--accent-primary)',
+                background: '#0f172a',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                position: 'relative',
+                overflow: 'hidden',
+              }}
+            >
+              <video src={attachedMedia.base64} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <Film size={20} color="#fff" style={{ position: 'absolute' }} />
+            </div>
+          ) : (
+            <img
+              src={attachedMedia.base64}
+              alt="Memory attachment"
+              style={{ width: '90px', height: '90px', objectFit: 'cover', borderRadius: '10px', border: '2px solid var(--accent-primary)' }}
+            />
+          )}
+
           <button
             type="button"
-            onClick={() => setSelectedImage(null)}
+            onClick={() => setAttachedMedia(null)}
+            title="Remove attachment"
             style={{
               position: 'absolute',
               top: '-6px',
@@ -121,15 +160,16 @@ export const MemoryInput: React.FC<MemoryInputProps> = ({ onSave, currentLocatio
               color: '#fff',
               border: 'none',
               borderRadius: '50%',
-              width: '20px',
-              height: '20px',
+              width: '22px',
+              height: '22px',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              boxShadow: '0 2px 6px rgba(0,0,0,0.5)',
             }}
           >
-            <X size={12} />
+            <X size={13} />
           </button>
         </div>
       )}
@@ -147,31 +187,28 @@ export const MemoryInput: React.FC<MemoryInputProps> = ({ onSave, currentLocatio
           />
 
           <div className="capture-btn-group">
-            {/* Hidden File Input */}
-            <input
-              type="file"
-              ref={fileInputRef}
-              accept="image/*"
-              style={{ display: 'none' }}
-              onChange={handleImageUpload}
-            />
-
-            {/* Photo Attachment Button */}
+            {/* Live Camera / Video Capture Modal Trigger */}
             <button
               type="button"
               className="btn btn-secondary btn-icon btn-sm"
-              onClick={() => fileInputRef.current?.click()}
-              title="Attach a photo (Gemini Vision multimodal extraction)"
+              onClick={() => setIsMediaModalOpen(true)}
+              title="Open Live Camera (Snap Photo, Record Video, or Upload)"
+              style={{
+                borderColor: attachedMedia ? '#10b981' : undefined,
+                color: attachedMedia ? '#34d399' : undefined,
+              }}
             >
-              <Camera size={16} color={selectedImage ? '#34d399' : 'var(--text-secondary)'} />
+              <Camera size={16} />
             </button>
 
+            {/* Microphone Speech-To-Text Button */}
             {isSupported && (
               <button
                 type="button"
                 className={`mic-btn ${isListening ? 'recording' : ''}`}
                 onClick={toggleListening}
-                title={isListening ? 'Stop listening' : 'Speak to remember'}
+                title={isListening ? 'Listening... click to stop' : 'Click to speak memory'}
+                style={isListening ? { animation: 'pulse 1s infinite', background: '#ef4444', color: '#fff' } : {}}
               >
                 {isListening ? <MicOff size={18} /> : <Mic size={18} />}
               </button>
@@ -180,7 +217,7 @@ export const MemoryInput: React.FC<MemoryInputProps> = ({ onSave, currentLocatio
             <button
               type="submit"
               className="btn btn-primary btn-sm"
-              disabled={isSubmitting || (!text.trim() && !selectedImage)}
+              disabled={isSubmitting || (!text.trim() && !attachedMedia)}
               style={{ padding: '8px 16px' }}
             >
               {isSubmitting ? (
@@ -198,6 +235,29 @@ export const MemoryInput: React.FC<MemoryInputProps> = ({ onSave, currentLocatio
           </div>
         </div>
       </form>
+
+      {/* Active Listening Soundwave Indicator */}
+      {isListening && (
+        <div
+          style={{
+            marginTop: '8px',
+            padding: '6px 12px',
+            background: 'rgba(239, 68, 68, 0.15)',
+            border: '1px solid rgba(239, 68, 68, 0.4)',
+            borderRadius: '8px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            color: '#f87171',
+            fontSize: '0.8rem',
+            fontWeight: 600,
+            animation: 'fadeIn 0.2s ease',
+          }}
+        >
+          <div className="location-pulse" style={{ width: '8px', height: '8px', background: '#ef4444' }} />
+          <span>Listening to your voice... speak now (e.g. "I left my passport in the blue folder")</span>
+        </div>
+      )}
 
       {/* Example Prompt Chips */}
       <div className="capture-examples">
@@ -249,6 +309,13 @@ export const MemoryInput: React.FC<MemoryInputProps> = ({ onSave, currentLocatio
           </div>
         </div>
       )}
+
+      {/* Live Camera Photo & Video Capture Modal */}
+      <MediaCaptureModal
+        isOpen={isMediaModalOpen}
+        onClose={() => setIsMediaModalOpen(false)}
+        onMediaCaptured={handleMediaCaptured}
+      />
     </div>
   );
 };

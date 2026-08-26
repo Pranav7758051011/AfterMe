@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
   MapPin, Clock, Calendar, Check, RotateCcw, Trash2, 
-  AlertTriangle, FileText, CheckCircle2, User, Lightbulb, Package, Target, Image as ImageIcon, X, Car
+  AlertTriangle, FileText, CheckCircle2, User, Lightbulb, Package, Target, Image as ImageIcon, X, Car, Film, Play
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { Memory } from '../types';
@@ -19,6 +19,13 @@ export const MemoryCard: React.FC<MemoryCardProps> = ({ memory, onStatusChange, 
   const isRetrieved = memory.status === 'retrieved';
   const isCompleted = memory.status === 'completed';
   const isForgotten = memory.status === 'potentially_forgotten';
+
+  const isVideo = Boolean(
+    memory.image_url &&
+    (memory.image_url.startsWith('data:video') ||
+      memory.image_url.endsWith('.mp4') ||
+      memory.image_url.endsWith('.webm'))
+  );
 
   const getTypeIcon = () => {
     if (memory.object?.toLowerCase().includes('car') || memory.location?.toLowerCase().includes('park')) {
@@ -150,7 +157,7 @@ export const MemoryCard: React.FC<MemoryCardProps> = ({ memory, onStatusChange, 
           "{memory.original_text}"
         </p>
 
-        {/* Photo Attachment Thumbnail (if available) */}
+        {/* Photo or Video Attachment Thumbnail */}
         {memory.image_url && (
           <div style={{ marginBottom: '10px' }}>
             <div
@@ -161,21 +168,45 @@ export const MemoryCard: React.FC<MemoryCardProps> = ({ memory, onStatusChange, 
                 borderRadius: '8px',
                 overflow: 'hidden',
                 border: '1px solid rgba(255,255,255,0.15)',
+                width: '100%',
+                maxHeight: '140px',
+                background: '#090d16',
               }}
               onClick={() => setShowImageModal(true)}
-              title="Click to view full photo"
+              title={isVideo ? 'Click to play video memory' : 'Click to view full photo'}
             >
-              <img
-                src={memory.image_url}
-                alt="Memory attachment"
-                style={{ width: '100%', maxHeight: '110px', objectFit: 'cover', display: 'block' }}
-              />
+              {isVideo ? (
+                <div style={{ position: 'relative', width: '100%', height: '120px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <video src={memory.image_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <div
+                    style={{
+                      position: 'absolute',
+                      background: 'rgba(0,0,0,0.6)',
+                      borderRadius: '50%',
+                      width: '36px',
+                      height: '36px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Play size={18} color="#fff" />
+                  </div>
+                </div>
+              ) : (
+                <img
+                  src={memory.image_url}
+                  alt="Memory attachment"
+                  style={{ width: '100%', maxHeight: '120px', objectFit: 'cover', display: 'block' }}
+                />
+              )}
+
               <div
                 style={{
                   position: 'absolute',
                   bottom: '4px',
                   right: '4px',
-                  background: 'rgba(0,0,0,0.7)',
+                  background: 'rgba(0,0,0,0.75)',
                   color: '#fff',
                   borderRadius: '4px',
                   padding: '2px 6px',
@@ -185,8 +216,8 @@ export const MemoryCard: React.FC<MemoryCardProps> = ({ memory, onStatusChange, 
                   gap: '3px',
                 }}
               >
-                <ImageIcon size={11} />
-                <span>Photo</span>
+                {isVideo ? <Film size={11} /> : <ImageIcon size={11} />}
+                <span>{isVideo ? 'Video' : 'Photo'}</span>
               </div>
             </div>
           </div>
@@ -304,7 +335,7 @@ export const MemoryCard: React.FC<MemoryCardProps> = ({ memory, onStatusChange, 
         </button>
       </div>
 
-      {/* Full Photo Modal Preview */}
+      {/* Full Photo / Video Modal Preview */}
       {showImageModal && memory.image_url && (
         <div
           className="ask-drawer-overlay"
@@ -319,9 +350,9 @@ export const MemoryCard: React.FC<MemoryCardProps> = ({ memory, onStatusChange, 
               margin: 'auto',
               background: '#0f172a',
               borderRadius: '16px',
-              padding: '12px',
+              padding: '16px',
               border: '1px solid rgba(255,255,255,0.2)',
-              boxShadow: '0 20px 50px rgba(0,0,0,0.8)',
+              boxShadow: '0 20px 50px rgba(0,0,0,0.85)',
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -341,16 +372,28 @@ export const MemoryCard: React.FC<MemoryCardProps> = ({ memory, onStatusChange, 
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
+                zIndex: 10,
               }}
             >
               <X size={18} />
             </button>
-            <img
-              src={memory.image_url}
-              alt="Full size memory attachment"
-              style={{ maxWidth: '100%', maxHeight: '75vh', borderRadius: '10px', objectFit: 'contain' }}
-            />
-            <div style={{ marginTop: '10px', color: '#e2e8f0', fontSize: '0.9rem' }}>
+
+            {isVideo ? (
+              <video
+                src={memory.image_url}
+                controls
+                autoPlay
+                style={{ maxWidth: '100%', maxHeight: '75vh', borderRadius: '10px' }}
+              />
+            ) : (
+              <img
+                src={memory.image_url}
+                alt="Full size memory attachment"
+                style={{ maxWidth: '100%', maxHeight: '75vh', borderRadius: '10px', objectFit: 'contain' }}
+              />
+            )}
+
+            <div style={{ marginTop: '12px', color: '#e2e8f0', fontSize: '0.9rem' }}>
               <strong>{memory.object || memory.original_text}</strong> &bull; 📍 {memory.location || 'Location'}
             </div>
           </div>

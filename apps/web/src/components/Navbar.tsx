@@ -1,7 +1,7 @@
 import React from 'react';
-import { Brain, MessageSquareQuote, Sparkles, RotateCcw, Play, User, Flame } from 'lucide-react';
+import { Brain, MessageSquareQuote, Sparkles, RotateCcw, Play, User, Flame, LogIn, ShieldCheck, LogOut } from 'lucide-react';
 import { AppStats } from '../types';
-import { getApiUserId } from '../services/api';
+import { auth } from '../services/firebase';
 
 interface NavbarProps {
   stats: AppStats | null;
@@ -24,6 +24,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   isLoading,
   userId,
 }) => {
+  const currentUser = auth.currentUser;
+
   return (
     <header className="navbar">
       <div className="logo-container">
@@ -51,23 +53,36 @@ export const Navbar: React.FC<NavbarProps> = ({
             color: '#fbbf24',
             fontWeight: 600,
           }}
-          title="Backend backed by Cloud Firestore & Firebase Auth"
+          title="Connected to Firebase: afterme-ai-app"
         >
           <Flame size={13} color="#f59e0b" />
-          <span>Firestore Ready</span>
+          <span>Firestore & Auth Active</span>
         </div>
 
-        {/* User Identity Button */}
+        {/* Prominent Firebase Authenticator Button */}
         <button
           className="btn btn-secondary btn-sm"
           onClick={onOpenAuth}
-          title="Switch Firebase User Identity"
-          style={{ padding: '6px 12px' }}
+          title="Open Firebase Authentication (Email/Password & Google Sign-In)"
+          style={{
+            padding: '6px 12px',
+            borderColor: currentUser ? '#10b981' : 'rgba(99, 102, 241, 0.4)',
+            background: currentUser ? 'rgba(16, 185, 129, 0.12)' : 'rgba(99, 102, 241, 0.12)',
+          }}
         >
-          <User size={13} color="var(--accent-cyan)" />
-          <span style={{ maxWidth: '110px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {userId}
-          </span>
+          {currentUser ? (
+            <>
+              <ShieldCheck size={14} color="#34d399" />
+              <span style={{ maxWidth: '130px', overflow: 'hidden', textOverflow: 'ellipsis', color: '#34d399', fontWeight: 700 }}>
+                {currentUser.displayName || currentUser.email || userId}
+              </span>
+            </>
+          ) : (
+            <>
+              <LogIn size={14} color="var(--accent-primary)" />
+              <span style={{ fontWeight: 600 }}>🔐 Firebase Sign In</span>
+            </>
+          )}
         </button>
 
         {/* Quick Judge Demo Presets */}

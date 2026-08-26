@@ -1,55 +1,94 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 export function useSpeechToText(onTranscript: (text: string) => void) {
   const [isListening, setIsListening] = useState(false);
   const [isSupported, setIsSupported] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const recognitionRef = useRef<any>(null);
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
-      setIsSupported(true);
+    if (typeof window !== 'undefined') {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        setIsSupported(true);
+        const recognition = new SpeechRecognition();
+        recognition.continuous = false;
+        recognition.interimResults = false;
+        recognition.lang = 'en-US';
+
+        recognition.onstart = () => {
+          setIsListening(true);
+          setErrorMessage(null);
+        };
+
+        recognition.onresult = (event: any) => {
+          let fullTranscript = '';
+          for (let i = event.resultIndex; i < event.results.length; ++i) {
+            fullTranscript += event.results[i][0].transcript;
+          }
+          if (fullTranscript.trim()) {
+            onTranscript(fullTranscript.trim());
+          }
+          setIsListening(false);
+        };
+
+        recognition.onerror = (event: any) => {
+          console.warn('Speech recognition error event:', event.error);
+          if (event.error === 'not-allowed') {
+            setErrorMessage('Microphone access was denied. Please allow microphone permissions in your browser URL bar.');
+          } else if (event.error === 'no-speech') {
+            setErrorMessage('No speech detected. Please speak clearly into your mic.');
+          } else {
+            setErrorMessage(`Mic error: ${event.error}`);
+          }
+          setIsListening(false);
+        };
+
+        recognition.onend = () => {
+          setIsListening(false);
+        };
+
+        recognitionRef.current = recognition;
+      }
     }
-  }, []);
+
+    return () => {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort();
+        } catch {}
+      }
+    };
+  }, [onTranscript]);
 
   const toggleListening = useCallback(() => {
     if (!isSupported) {
-      alert('Speech recognition is not supported in this browser. Please use Google Chrome or type naturally.');
+      alert('Speech recognition is not supported in this browser. Please use Chrome, Edge, or Safari.');
       return;
     }
 
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    const recognition = new SpeechRecognition();
+    const recognition = recognitionRef.current;
+    if (!recognition) return;
 
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognition.lang = 'en-US';
-
-    recognition.onstart = () => {
-      setIsListening(true);
-    };
-
-    recognition.onresult = (event: any) => {
-      const current = event.resultIndex;
-      const transcriptText = event.results[current][0].transcript;
-      onTranscript(transcriptText);
+    if (isListening) {
+      try {
+        recognition.stop();
+      } catch {}
       setIsListening(false);
-    };
-
-    recognition.onerror = (event: any) => {
-      console.warn('Speech recognition error:', event.error);
-      setIsListening(false);
-    };
-
-    recognition.onend = () => {
-      setIsListening(false);
-    };
-
-    if (!isListening) {
-      recognition.start();
     } else {
-      recognition.stop();
-      setIsListening(false);
+      setErrorMessage(null);
+      try {
+        recognition.start();
+      } catch (err: any) {
+        console.warn('Error starting speech recognition:', err);
+        // If recognition is already started, abort and restart
+        try {
+          recognition.abort();
+          setTimeout(() => recognition.start(), 100);
+        } catch {}
+      }
     }
-  }, [isListening, isSupported, onTranscript]);
+  }, [isListening, isSupported]);
 
-  return { isListening, isSupported, toggleListening };
+  return { isListening, isSupported, errorMessage, toggleListening };
 }
