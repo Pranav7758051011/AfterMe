@@ -12,6 +12,7 @@ import {
   User as FirebaseUser 
 } from 'firebase/auth';
 import { auth, googleProvider } from '../services/firebase';
+import { cloudFirestore } from '../services/firestoreClient';
 import { setApiUser, getApiUserId } from '../services/api';
 
 interface AuthModalProps {
@@ -31,13 +32,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onUserCha
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
       if (user) {
         const id = user.uid;
         setCurrentId(id);
         setApiUser(id);
         onUserChanged(id);
+
+        // Sync user document directly into Cloud Firestore users collection!
+        await cloudFirestore.syncUser({
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName,
+          photoURL: user.photoURL,
+          provider: user.providerData?.[0]?.providerId || 'password',
+        });
       }
     });
     return () => unsubscribe();
@@ -45,10 +55,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onUserCha
 
   if (!isOpen) return null;
 
-  const handleSelectUser = (id: string) => {
+  const handleSelectUser = async (id: string, name?: string) => {
     setApiUser(id);
     setCurrentId(id);
     onUserChanged(id);
+
+    // Sync demo persona to Firestore users collection
+    await cloudFirestore.syncUser({
+      uid: id,
+      email: `${id}@afterme.ai`,
+      displayName: name || id,
+      provider: 'demo_persona',
+    });
+
     setSuccessMessage(`Switched to persona: ${id}`);
     setTimeout(() => {
       setSuccessMessage(null);
@@ -68,7 +87,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onUserCha
       setCurrentId(uid);
       setApiUser(uid);
       onUserChanged(uid);
-      setSuccessMessage(`Signed in as ${user.displayName || user.email}!`);
+
+      // Immediately write user profile document into Cloud Firestore!
+      await cloudFirestore.syncUser({
+        uid: user.uid,
+        email: user.email,
+        displayName: user.displayName,
+        photoURL: user.photoURL,
+        provider: 'google.com',
+      });
+
+      setSuccessMessage(`Signed in as ${user.displayName || user.email}! User saved to Firestore.`);
       setTimeout(() => {
         setSuccessMessage(null);
         onClose();
@@ -98,7 +127,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onUserCha
       setCurrentId(user.uid);
       setApiUser(user.uid);
       onUserChanged(user.uid);
-      setSuccessMessage(`Signed in as ${user.email}!`);
+
+      // Immediately sync user profile to Cloud Firestore!
+      await cloudFirestore.syncUser({
+        uid: user.uid,
+        email: user.email,
+        displayName: user.email?.split('@')[0] || 'User',
+        provider: 'password',
+      });
+
+      setSuccessMessage(`Signed in as ${user.email}! Profile synced to Firestore.`);
       setTimeout(() => {
         setSuccessMessage(null);
         onClose();
@@ -115,7 +153,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onUserCha
     }
   };
 
-  // Email/Password Sign-Up
+  // Email/Password Sign-Up (Create Account)
   const handleEmailSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim() || !password.trim()) {
@@ -136,7 +174,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onUserCha
       setCurrentId(user.uid);
       setApiUser(user.uid);
       onUserChanged(user.uid);
-      setSuccessMessage(`Account created for ${user.email}!`);
+
+      // Immediately write new account document into Cloud Firestore 'users' collection!
+      await cloudFirestore.syncUser({
+        uid: user.uid,
+        email: user.email,
+        displayName: user.email?.split('@')[0] || 'New User',
+        provider: 'password',
+      });
+
+      setSuccessMessage(`Account created for ${user.email} & saved to Cloud Firestore!`);
       setTimeout(() => {
         setSuccessMessage(null);
         onClose();
@@ -159,7 +206,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onUserCha
     try {
       await signOut(auth);
       setCurrentUser(null);
-      handleSelectUser('demo_user_001');
+      handleSelectUser('demo_user_001', 'Demo User');
       setSuccessMessage('Signed out. Reset to default demo session.');
     } catch (err: any) {
       console.error('Sign Out Error:', err);
@@ -194,7 +241,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onUserCha
             <div>
               <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Firebase Authentication</h3>
               <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                Project: <strong>afterme-ai-app</strong>
+                Syncs directly with Cloud Firestore <strong>users</strong> collection
               </p>
             </div>
           </div>
@@ -445,7 +492,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onUserCha
                 disabled={isLoading || !email.trim() || !password.trim()}
                 style={{ width: '100%', padding: '10px', marginTop: '4px' }}
               >
-                {isLoading ? 'Creating Account...' : 'Create Account'}
+                {isLoading ? 'Creating Account...' : 'Create Account & Save to Firestore'}
               </button>
             </form>
           </div>
@@ -455,7 +502,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onUserCha
         {activeTab === 'demo' && (
           <div>
             <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '10px' }}>
-              Instant multi-tenant persona switcher for rapid hackathon testing:
+              Instant multi-tenant persona switcher (syncs to Cloud Firestore users collection):
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {[
@@ -475,7 +522,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onUserCha
                     borderColor: currentId === persona.id ? 'var(--accent-primary)' : 'var(--border-subtle)',
                     background: currentId === persona.id ? 'rgba(99, 102, 241, 0.15)' : 'rgba(255,255,255,0.03)',
                   }}
-                  onClick={() => handleSelectUser(persona.id)}
+                  onClick={() => handleSelectUser(persona.id, persona.name)}
                 >
                   <div style={{ textAlign: 'left' }}>
                     <div style={{ fontSize: '0.85rem', fontWeight: 700 }}>{persona.name}</div>

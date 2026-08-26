@@ -15,6 +15,34 @@ import { firestore } from './firebase';
 import { Memory, ProactiveAlert } from '../types';
 
 export const cloudFirestore = {
+  // Save or sync user profile directly into Cloud Firestore 'users' collection
+  async syncUser(user: {
+    uid: string;
+    email?: string | null;
+    displayName?: string | null;
+    photoURL?: string | null;
+    provider?: string;
+  }): Promise<void> {
+    try {
+      const userRef = doc(firestore, 'users', user.uid);
+      const userData = {
+        uid: user.uid,
+        email: user.email || null,
+        displayName: user.displayName || user.email?.split('@')[0] || 'User',
+        photoURL: user.photoURL || null,
+        provider: user.provider || 'password',
+        last_login_at: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        role: 'user',
+        status: 'active',
+      };
+      await setDoc(userRef, userData, { merge: true });
+      console.log('🔥 [Cloud Firestore] User profile saved to Cloud Firestore users collection:', user.uid);
+    } catch (err: any) {
+      console.warn('⚠️ [Cloud Firestore User Sync Warning]', err?.message || err);
+    }
+  },
+
   // Save memory directly into Cloud Firestore in project afterme-ai-app
   async saveMemory(memory: Memory): Promise<void> {
     try {
