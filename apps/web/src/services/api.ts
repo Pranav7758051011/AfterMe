@@ -1,4 +1,5 @@
 import { Memory, ProactiveAlert, AppStats, AskResponse } from '../types';
+import { cloudFirestore } from './firestoreClient';
 
 const API_BASE = '/api';
 
@@ -32,10 +33,19 @@ export const api = {
     if (filters?.memory_type) params.append('memory_type', filters.memory_type);
     if (filters?.search) params.append('search', filters.search);
 
-    const res = await fetch(`${API_BASE}/memories?${params.toString()}`, { headers: getHeaders() });
-    if (!res.ok) throw new Error('Failed to fetch memories');
-    const data = await res.json();
-    return data.memories || [];
+    try {
+      const res = await fetch(`${API_BASE}/memories?${params.toString()}`, { headers: getHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        return data.memories || [];
+      }
+    } catch (e) {
+      console.warn('Backend fetch notice, checking Cloud Firestore directly:', e);
+    }
+
+    // Direct Cloud Firestore Fallback
+    const directMemories = await cloudFirestore.getMemories(currentUserId);
+    return directMemories;
   },
 
   async createMemory(
@@ -56,11 +66,23 @@ export const api = {
         longitude: options?.longitude,
       }),
     });
+
     if (!res.ok) throw new Error('Failed to create memory');
-    return res.json();
+    const result = await res.json();
+
+    // Immediately write into Cloud Firestore in project afterme-ai-app!
+    if (result.memory) {
+      await cloudFirestore.saveMemory(result.memory);
+    }
+
+    return result;
   },
 
   async updateMemoryStatus(id: string, status: string): Promise<Memory> {
+    // 1. Update in Cloud Firestore
+    await cloudFirestore.updateStatus(id, status);
+
+    // 2. Update via Backend API
     const res = await fetch(`${API_BASE}/memories/${id}/status`, {
       method: 'PATCH',
       headers: getHeaders(),
@@ -72,6 +94,10 @@ export const api = {
   },
 
   async deleteMemory(id: string): Promise<boolean> {
+    // 1. Delete in Cloud Firestore
+    await cloudFirestore.deleteMemory(id);
+
+    // 2. Delete via Backend API
     const res = await fetch(`${API_BASE}/memories/${id}`, {
       method: 'DELETE',
       headers: getHeaders(),
@@ -86,7 +112,7 @@ export const api = {
     return res.json();
   },
 
-  async getLocation(): Promise<{ current_location: string; previous_location: string }> {
+  async getLocation(): Promise<{ current_location: string; previous_location: string; latitude?: number; longitude?: number }> {
     const res = await fetch(`${API_BASE}/location?user_id=${currentUserId}`, { headers: getHeaders() });
     if (!res.ok) throw new Error('Failed to fetch location');
     return res.json();
@@ -99,17 +125,38 @@ export const api = {
       body: JSON.stringify({ current_location: newLocation, previous_location: prevLocation, user_id: currentUserId }),
     });
     if (!res.ok) throw new Error('Failed to change location');
-    return res.json();
+    const result = await res.json();
+
+    // Sync alerts to Cloud Firestore
+    if (result.alerts && result.alerts.length > 0) {
+      for (const alert of result.alerts) {
+        await cloudFirestore.saveAlert(alert);
+      }
+    }
+
+    return result;
   },
 
   async sendGPSLocation(latitude: number, longitude: number, accuracy?: number, placeName?: string): Promise<any> {
+    // Sync live user location to Cloud Firestore
+    await cloudFirestore.saveUserLocation(currentUserId, placeName || 'GPS Location', latitude, longitude, accuracy);
+
     const res = await fetch(`${API_BASE}/location/gps`, {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify({ latitude, longitude, accuracy, place_name: placeName, user_id: currentUserId }),
     });
     if (!res.ok) throw new Error('Failed to send GPS location');
-    return res.json();
+    const result = await res.json();
+
+    // Sync alerts to Cloud Firestore
+    if (result.alerts && result.alerts.length > 0) {
+      for (const alert of result.alerts) {
+        await cloudFirestore.saveAlert(alert);
+      }
+    }
+
+    return result;
   },
 
   async getAlerts(): Promise<ProactiveAlert[]> {
@@ -120,6 +167,7 @@ export const api = {
   },
 
   async dismissAlert(id: string): Promise<boolean> {
+    await cloudFirestore.dismissAlert(id);
     const res = await fetch(`${API_BASE}/location/alerts/${id}/dismiss`, {
       method: 'POST',
       headers: getHeaders(),
@@ -152,7 +200,11 @@ export const api = {
       headers: getHeaders(),
       body: JSON.stringify({ user_id: currentUserId }),
     });
-    return res.json();
+    const result = await res.json();
+    if (result.memory) {
+      await cloudFirestore.saveMemory(result.memory);
+    }
+    return result;
   },
 
   async seedFullDemo(): Promise<any> {
