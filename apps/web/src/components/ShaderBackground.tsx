@@ -1,7 +1,15 @@
 import React, { useEffect, useRef } from 'react';
 
-export const ShaderBackground: React.FC = () => {
+interface ShaderBackgroundProps {
+  isDark?: boolean;
+}
+
+export const ShaderBackground: React.FC<ShaderBackgroundProps> = ({ isDark = true }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  if (!isDark) {
+    return null;
+  }
 
   useEffect(() => {
     const canvas = canvasRef.current;

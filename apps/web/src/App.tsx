@@ -265,8 +265,8 @@ export const App: React.FC = () => {
 
   return (
     <div className="app-container" style={{ position: 'relative' }}>
-      {/* WebGL Obsidian Shader Background */}
-      <ShaderBackground />
+      {/* WebGL Obsidian Shader Background (Active only in Dark Mode) */}
+      <ShaderBackground isDark={isDark} />
 
       {/* Top Navbar with Multi-Page Navigation Links */}
       <Navbar

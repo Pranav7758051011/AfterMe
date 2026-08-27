@@ -72,66 +72,66 @@
 
 /* ─── Light Mode Tokens ──────────────────────────────────── */
 [data-theme="light"] {
-  --bg-base:       #f5f7fb;
+  --bg-base:       #f8fafc;
   --bg-primary:    #ffffff;
-  --bg-secondary:  #f0f3f9;
-  --bg-tertiary:   #e8edf6;
+  --bg-secondary:  #f1f5f9;
+  --bg-tertiary:   #e2e8f0;
   --bg-elevated:   #ffffff;
-  --bg-overlay:    rgba(245, 247, 251, 0.95);
-  --bg-input:      #ffffff;
+  --bg-overlay:    rgba(248, 250, 252, 0.96);
+  --bg-input:      #f8fafc;
 
-  --border-faint:   rgba(0, 0, 0, 0.04);
-  --border-subtle:  rgba(0, 0, 0, 0.08);
-  --border-default: rgba(0, 0, 0, 0.13);
-  --border-strong:  rgba(0, 0, 0, 0.22);
+  --border-faint:   rgba(0, 0, 0, 0.05);
+  --border-subtle:  #e2e8f0;
+  --border-default: #cbd5e1;
+  --border-strong:  #94a3b8;
 
-  --text-primary:    #0f1623;
-  --text-secondary:  #4a5568;
-  --text-tertiary:   #8896a8;
-  --text-disabled:   #c4cdd7;
+  --text-primary:    #0f172a;
+  --text-secondary:  #334155;
+  --text-tertiary:   #64748b;
+  --text-disabled:   #94a3b8;
   --text-inverse:    #ffffff;
-  --text-muted:      #4a5568;
+  --text-muted:      #64748b;
 
-  --accent:          #3d5ce8;
-  --accent-hover:    #2f4ed4;
-  --accent-subtle:   rgba(61, 92, 232, 0.09);
-  --accent-border:   rgba(61, 92, 232, 0.25);
-  --accent-primary:  #3d5ce8;
+  --accent:          #2563eb;
+  --accent-hover:    #1d4ed8;
+  --accent-subtle:   rgba(37, 99, 235, 0.08);
+  --accent-border:   rgba(37, 99, 235, 0.28);
+  --accent-primary:  #2563eb;
   --accent-cyan:     #0284c7;
 
   --success:         #059669;
-  --success-subtle:  rgba(5, 150, 105, 0.09);
+  --success-subtle:  rgba(5, 150, 105, 0.08);
   --success-border:  rgba(5, 150, 105, 0.25);
   --success-text:    #047857;
 
   --danger:          #dc2626;
-  --danger-subtle:   rgba(220, 38, 38, 0.07);
-  --danger-border:   rgba(220, 38, 38, 0.22);
+  --danger-subtle:   rgba(220, 38, 38, 0.08);
+  --danger-border:   rgba(220, 38, 38, 0.25);
   --danger-text:     #b91c1c;
 
   --warning:         #d97706;
-  --warning-subtle:  rgba(217, 119, 6, 0.09);
+  --warning-subtle:  rgba(217, 119, 6, 0.08);
   --warning-border:  rgba(217, 119, 6, 0.25);
   --warning-text:    #b45309;
 
-  --info:            #0891b2;
-  --info-subtle:     rgba(8, 145, 178, 0.09);
-  --info-border:     rgba(8, 145, 178, 0.25);
+  --info:            #0284c7;
+  --info-subtle:     rgba(2, 132, 199, 0.08);
+  --info-border:     rgba(2, 132, 199, 0.25);
   --info-text:       #0369a1;
 
-  --shadow-xs:     0 1px 2px rgba(0,0,0,0.06);
-  --shadow-sm:     0 2px 8px rgba(0,0,0,0.08);
-  --shadow-md:     0 4px 16px rgba(0,0,0,0.1);
-  --shadow-lg:     0 8px 28px rgba(0,0,0,0.12);
-  --shadow-xl:     0 16px 40px rgba(0,0,0,0.14);
-  --shadow-accent: 0 4px 20px rgba(61, 92, 232, 0.18);
+  --shadow-xs:     0 1px 2px rgba(0,0,0,0.05);
+  --shadow-sm:     0 2px 8px rgba(0,0,0,0.06);
+  --shadow-md:     0 4px 16px rgba(0,0,0,0.07);
+  --shadow-lg:     0 10px 30px rgba(0,0,0,0.09);
+  --shadow-xl:     0 20px 48px rgba(0,0,0,0.11);
+  --shadow-accent: 0 4px 20px rgba(37, 99, 235, 0.20);
 
-  --card-hover-shadow: 0 8px 28px rgba(61, 92, 232, 0.1), 0 2px 8px rgba(0,0,0,0.08);
-  --navbar-bg:     rgba(255, 255, 255, 0.9);
-  --mesh-1: rgba(61, 92, 232, 0.04);
-  --mesh-2: rgba(8, 145, 178, 0.025);
+  --card-hover-shadow: 0 8px 30px rgba(37, 99, 235, 0.08), 0 2px 8px rgba(0,0,0,0.04);
+  --navbar-bg:     rgba(255, 255, 255, 0.95);
+  --mesh-1: rgba(37, 99, 235, 0.035);
+  --mesh-2: rgba(2, 132, 199, 0.025);
   --mesh-3: rgba(5, 150, 105, 0.02);
-  --mesh-4: rgba(168, 85, 247, 0.018);
+  --mesh-4: rgba(168, 85, 247, 0.015);
 }
 
 /* ─── Shared Non-Theme Tokens ────────────────────────────── */
@@ -2187,75 +2187,213 @@ body {
 }
 
 [data-theme="light"] .chat-bubble-ai {
-  background: var(--bg-primary);
-  border-color: var(--border-default);
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #0f172a;
 }
 
-/* ─── Creative: Bottom dock light mode ──────────────────── */
+/* ─── Bottom dock light mode ────────────────────────────── */
 [data-theme="light"] .bottom-navbar {
   background: transparent;
 }
 
+[data-theme="light"] .bottom-navbar-dock {
+  background: rgba(255, 255, 255, 0.96) !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08), 0 1px 4px rgba(0, 0, 0, 0.04) !important;
+}
+
+[data-theme="light"] .dock-tab {
+  color: #64748b !important;
+}
+
+[data-theme="light"] .dock-tab:hover {
+  color: #0f172a !important;
+  background: #f1f5f9 !important;
+}
+
 [data-theme="light"] .dock-tab.active {
-  background: var(--accent-subtle);
-  color: var(--accent);
+  background: rgba(37, 99, 235, 0.1) !important;
+  color: #2563eb !important;
 }
 
 [data-theme="light"] .dock-tab.active svg {
-  color: var(--accent);
+  color: #2563eb !important;
 }
 
-/* ─── Creative: Safety ring glow ────────────────────────── */
+/* ─── Safety ring widget light mode ─────────────────────── */
 [data-theme="light"] .safety-widget {
-  background: var(--bg-primary);
-  border-color: var(--border-default);
-  box-shadow: var(--shadow-sm);
+  background: #ffffff;
+  border-color: #e2e8f0;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
 }
 
-/* ─── Empty state creative ───────────────────────────────── */
+[data-theme="light"] .safety-widget p {
+  color: #475569 !important;
+}
+
+/* ─── Empty state light mode ────────────────────────────── */
 [data-theme="light"] .empty-state {
-  background: var(--bg-primary);
-  border-color: var(--border-default);
+  background: #ffffff;
+  border-color: #e2e8f0;
+}
+
+[data-theme="light"] .empty-state-title {
+  color: #0f172a !important;
+}
+
+[data-theme="light"] .empty-state-body {
+  color: #64748b !important;
 }
 
 /* ─── Voice orb light mode ───────────────────────────────── */
 [data-theme="light"] .voice-status-label {
-  background: var(--bg-primary);
-  border-color: var(--border-default);
+  background: #ffffff;
+  border-color: #e2e8f0;
+  color: #0f172a;
 }
 
 /* ─── Insight cards light mode ───────────────────────────── */
 [data-theme="light"] .insight-card {
-  background: var(--bg-primary);
-  box-shadow: var(--shadow-xs);
+  background: #ffffff;
+  border-color: #e2e8f0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .insight-title {
+  color: #0f172a !important;
 }
 
 [data-theme="light"] .bar-chart-track {
-  background: var(--bg-tertiary);
+  background: #e2e8f0;
 }
 
 /* ─── Drawer light mode ───────────────────────────────────── */
 [data-theme="light"] .ask-drawer {
-  border-left-color: var(--border-default);
-  box-shadow: -4px 0 24px rgba(0,0,0,0.1);
+  background: #ffffff !important;
+  border-left: 1px solid #e2e8f0 !important;
+  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.08) !important;
 }
 
 [data-theme="light"] .drawer-footer {
-  background: var(--bg-secondary);
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
 }
 
 /* ─── Nav tabs light mode ─────────────────────────────────── */
 [data-theme="light"] .nav-tabs {
-  background: var(--bg-secondary);
-  border-color: var(--border-default);
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+}
+
+[data-theme="light"] .nav-tab {
+  color: #475569 !important;
 }
 
 [data-theme="light"] .nav-tab:hover {
-  background: var(--bg-elevated);
+  background: rgba(255, 255, 255, 0.6);
+  color: #0f172a !important;
 }
 
 [data-theme="light"] .nav-tab.active {
-  background: var(--bg-primary);
-  box-shadow: var(--shadow-xs);
+  background: #ffffff;
+  color: #2563eb !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+/* ─── KPI Cards light mode text sharpness ───────────────── */
+[data-theme="light"] .kpi-label {
+  color: #475569 !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="light"] .kpi-value {
+  color: #0f172a !important;
+  font-weight: 900 !important;
+}
+
+[data-theme="light"] .kpi-subtitle {
+  color: #64748b !important;
+}
+
+/* ─── Filter Tabs light mode ────────────────────────────── */
+[data-theme="light"] .filter-tab {
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+  color: #334155 !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="light"] .filter-tab:hover {
+  background: #e2e8f0;
+  color: #0f172a !important;
+}
+
+[data-theme="light"] .filter-tab.active {
+  background: #2563eb !important;
+  border-color: #2563eb !important;
+  color: #ffffff !important;
+}
+
+[data-theme="light"] .filter-count {
+  background: #e2e8f0;
+  color: #334155;
+}
+
+[data-theme="light"] .filter-tab.active .filter-count {
+  background: rgba(255, 255, 255, 0.3) !important;
+  color: #ffffff !important;
+}
+
+/* ─── Search Bar light mode ─────────────────────────────── */
+[data-theme="light"] .search-bar {
+  background: #ffffff;
+  border-color: #cbd5e1;
+}
+
+[data-theme="light"] .search-input {
+  color: #0f172a !important;
+}
+
+[data-theme="light"] .search-input::placeholder {
+  color: #64748b !important;
+}
+
+/* ─── Memory Cards light mode ───────────────────────────── */
+[data-theme="light"] .memory-card {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04) !important;
+}
+
+[data-theme="light"] .card-title {
+  color: #0f172a !important;
+  font-weight: 800 !important;
+}
+
+[data-theme="light"] .card-body {
+  color: #334155 !important;
+}
+
+[data-theme="light"] .card-meta-item {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+  color: #475569 !important;
+}
+
+/* ─── Proactive Alert Toast light mode ──────────────────── */
+[data-theme="light"] .alert-toast {
+  background: #ffffff !important;
+  border: 1px solid #fed7aa !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08) !important;
+}
+
+[data-theme="light"] .alert-toast-title {
+  color: #9a3412 !important;
+  font-weight: 800 !important;
+}
+
+[data-theme="light"] .alert-toast-body {
+  color: #334155 !important;
 }
 
