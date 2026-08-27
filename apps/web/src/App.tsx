@@ -191,7 +191,13 @@ export const App: React.FC = () => {
   };
 
   const handleDeleteMemory = async (id: string) => {
-    await api.deleteMemory(id);
+    // Optimistic instant UI update
+    setMemories((prev) => prev.filter((m) => m.id !== id));
+    try {
+      await api.deleteMemory(id);
+    } catch (err) {
+      console.error('Delete error:', err);
+    }
     await refreshData();
   };
 

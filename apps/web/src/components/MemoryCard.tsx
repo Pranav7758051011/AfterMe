@@ -94,6 +94,38 @@ export const MemoryCard: React.FC<MemoryCardProps> = ({
   const formattedTime = new Date(memory.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const formattedDate = new Date(memory.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' });
 
+  const handleDirectShare = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const itemTitle = memory.object || memory.task || memory.original_text;
+    const itemLocation = memory.location || 'Current recorded spot';
+    const shareUrl = typeof window !== 'undefined' ? `${window.location.origin}/#memory-${memory.id}` : `https://afterme-ai-app.web.app/#memory-${memory.id}`;
+    const shareText = `📍 AfterMe Item Handover:\nI left my "${itemTitle}" at ${itemLocation}.\nView details here: ${shareUrl}`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `AfterMe: ${itemTitle}`,
+          text: shareText,
+          url: shareUrl,
+        });
+        return;
+      } catch (err) {
+        // User cancelled or share dismissed
+      }
+    }
+
+    if (onShare) {
+      onShare(memory);
+    } else {
+      navigator.clipboard.writeText(shareText);
+    }
+  };
+
+  const handleDeleteClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onDelete(memory.id);
+  };
+
   return (
     <>
       <div
@@ -208,58 +240,70 @@ export const MemoryCard: React.FC<MemoryCardProps> = ({
         </div>
 
         {/* Actions */}
-        <div className="card-actions">
-          {memory.memory_type === 'belonging' && (
-            <button
-              type="button"
-              className={`btn btn-sm ${isRetrieved ? 'btn-secondary' : 'btn-success'}`}
-              onClick={handleToggleRetrieved}
-            >
-              {isRetrieved ? <><RotateCcw size={12} /> Mark Active</> : <><CheckCircle2 size={12} /> Retrieved</>}
-            </button>
-          )}
+        <div className="card-actions" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
+          <div>
+            {memory.memory_type === 'belonging' && (
+              <button
+                type="button"
+                className={`btn btn-sm ${isRetrieved ? 'btn-secondary' : 'btn-success'}`}
+                onClick={handleToggleRetrieved}
+              >
+                {isRetrieved ? <><RotateCcw size={12} /> Mark Active</> : <><CheckCircle2 size={12} /> Retrieved</>}
+              </button>
+            )}
 
-          {memory.memory_type === 'task' && (
-            <button
-              type="button"
-              className={`btn btn-sm ${isCompleted ? 'btn-secondary' : 'btn-success'}`}
-              onClick={handleToggleTask}
-            >
-              {isCompleted ? <><RotateCcw size={12} /> Reopen</> : <><Check size={12} /> Complete</>}
-            </button>
-          )}
+            {memory.memory_type === 'task' && (
+              <button
+                type="button"
+                className={`btn btn-sm ${isCompleted ? 'btn-secondary' : 'btn-success'}`}
+                onClick={handleToggleTask}
+              >
+                {isCompleted ? <><RotateCcw size={12} /> Reopen</> : <><Check size={12} /> Complete</>}
+              </button>
+            )}
+          </div>
 
-          <div className="card-actions-right">
+          <div className="card-actions-right" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             {memory.location && onLocateOnMap && (
               <button
                 type="button"
-                className="btn btn-ghost btn-icon-sm"
+                className="btn btn-secondary btn-sm"
                 onClick={handleLocateClick}
-                title="Locate on map"
+                title="Locate on 3D Map"
+                style={{ padding: '5px 10px', fontSize: '0.75rem', gap: '4px' }}
               >
-                <Navigation size={13} />
-              </button>
-            )}
-
-            {onShare && (
-              <button
-                type="button"
-                className="btn btn-ghost btn-icon-sm"
-                onClick={() => onShare(memory)}
-                title="Share memory"
-              >
-                <Share2 size={13} />
+                <Navigation size={12} />
+                <span>Locate</span>
               </button>
             )}
 
             <button
               type="button"
-              className="btn btn-ghost btn-icon-sm"
-              onClick={() => onDelete(memory.id)}
-              title="Delete memory"
-              style={{ color: 'var(--text-tertiary)' }}
+              className="btn btn-secondary btn-sm"
+              onClick={handleDirectShare}
+              title="Share / Send QR Handover Link"
+              style={{ padding: '5px 10px', fontSize: '0.75rem', gap: '4px', borderColor: 'rgba(79, 110, 247, 0.35)', color: '#93c5fd' }}
             >
-              <Trash2 size={13} />
+              <Share2 size={12} />
+              <span>Share</span>
+            </button>
+
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={handleDeleteClick}
+              title="Delete memory permanently"
+              style={{
+                padding: '5px 10px',
+                fontSize: '0.75rem',
+                gap: '4px',
+                borderColor: 'rgba(239, 68, 68, 0.35)',
+                color: '#f87171',
+                background: 'rgba(239, 68, 68, 0.08)',
+              }}
+            >
+              <Trash2 size={12} />
+              <span>Delete</span>
             </button>
           </div>
         </div>

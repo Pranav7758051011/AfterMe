@@ -148,7 +148,8 @@ body {
 .app-container {
   max-width: 1280px;
   margin: 0 auto;
-  padding: 0 var(--sp-6) var(--sp-12);
+  padding: 0 var(--sp-6) 180px;
+  min-height: 100vh;
 }
 
 /* ─── Typography Scale ───────────────────────────────────── */
@@ -1781,7 +1782,7 @@ body {
 }
 
 @media (max-width: 768px) {
-  .app-container { padding: 0 var(--sp-4) 100px; }
+  .app-container { padding: 0 var(--sp-4) 180px; }
   .navbar { top: 8px; padding: 8px 14px; }
   .nav-tabs { display: none; }
   .kpi-grid { grid-template-columns: repeat(2, 1fr); gap: var(--sp-3); }
