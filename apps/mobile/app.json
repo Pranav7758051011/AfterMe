@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "AfterMe",
+    "name": "AfterMe — Proactive AI Memory",
     "slug": "afterme",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -9,16 +9,29 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0a0d14"
+      "backgroundColor": "#07090f"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.afterme.ai",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "AfterMe needs location access to alert you when you depart a place where belongings were left.",
+        "NSMicrophoneUsageDescription": "AfterMe needs microphone access for hands-free voice memory capture."
+      }
     },
     "android": {
+      "package": "com.afterme.ai",
+      "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#0a0d14"
-      }
+        "backgroundColor": "#07090f"
+      },
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "RECORD_AUDIO",
+        "VIBRATE"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
