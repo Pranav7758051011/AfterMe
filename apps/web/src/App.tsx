@@ -352,8 +352,10 @@ export const App: React.FC = () => {
         )}
       </main>
 
-      {/* Company & Founders Footer */}
-      <CompanyFooter onNavigateToTab={setActiveTab} />
+      {/* Company & Founders Footer (Displayed only on Dashboard) */}
+      {activeTab === 'dashboard' && (
+        <CompanyFooter onNavigateToTab={setActiveTab} />
+      )}
 
       {/* Stitch AI Mobile/Tablet Bottom Navigation Bar */}
       <BottomNavBar activeTab={activeTab} onTabChange={setActiveTab} />
