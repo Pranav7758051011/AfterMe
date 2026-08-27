@@ -48,6 +48,7 @@ interface LocationSimulatorProps {
   onMarkRetrieved?: (memoryId: string) => void;
   onClearHighlight?: () => void;
   onRequestFreshGPS?: () => Promise<{ lat: number; lng: number; name: string } | null>;
+  onAddMemoryAtLocation?: (placeName: string, lat: number, lng: number) => void;
   isLoading: boolean;
 }
 
@@ -66,6 +67,7 @@ export const LocationSimulator: React.FC<LocationSimulatorProps> = ({
   onMarkRetrieved,
   onClearHighlight,
   onRequestFreshGPS,
+  onAddMemoryAtLocation,
   isLoading,
 }) => {
   const [showMap, setShowMap] = useState(true);
@@ -172,6 +174,7 @@ export const LocationSimulator: React.FC<LocationSimulatorProps> = ({
             isLiveTracking={isLiveTracking}
             highlightedLocation={highlightedLocation}
             onSelectLocation={handleCustomMapSelect}
+            onAddMemoryAtLocation={onAddMemoryAtLocation}
             onMarkRetrieved={onMarkRetrieved}
             onClearHighlight={onClearHighlight}
             onRequestFreshGPS={onRequestFreshGPS}

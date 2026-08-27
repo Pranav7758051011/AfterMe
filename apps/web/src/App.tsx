@@ -29,9 +29,29 @@ export const App: React.FC = () => {
   const [isAskOpen, setIsAskOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [prefilledMemoryText, setPrefilledMemoryText] = useState<string | undefined>(undefined);
 
   // Live GPS Geolocation Hook
   const geo = useGeolocation(true);
+
+  const handleAddMemoryAtLocation = (placeName: string, lat: number, lng: number) => {
+    setCurrentLocation(placeName);
+    setUserLatitude(lat);
+    setUserLongitude(lng);
+    setPrefilledMemoryText('I left ');
+
+    const inputSection = document.getElementById('memory-input-section');
+    if (inputSection) {
+      inputSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    setTimeout(() => {
+      const txtInput = document.querySelector<HTMLInputElement>('#memory-input-section input');
+      if (txtInput) {
+        txtInput.focus();
+        txtInput.setSelectionRange(txtInput.value.length, txtInput.value.length);
+      }
+    }, 350);
+  };
 
   // Sync real-time browser GPS when coordinates arrive
   useEffect(() => {
@@ -244,6 +264,7 @@ export const App: React.FC = () => {
         onMarkRetrieved={(id) => handleMarkRetrieved(id)}
         onClearHighlight={() => setHighlightedLocation(null)}
         onRequestFreshGPS={geo.requestFreshLocation}
+        onAddMemoryAtLocation={handleAddMemoryAtLocation}
         isLoading={isLoading}
       />
 
@@ -260,6 +281,7 @@ export const App: React.FC = () => {
         currentLocation={currentLocation}
         userLatitude={userLatitude}
         userLongitude={userLongitude}
+        prefilledText={prefilledMemoryText}
       />
 
       {/* Memory Stream Header & Filter Tabs */}

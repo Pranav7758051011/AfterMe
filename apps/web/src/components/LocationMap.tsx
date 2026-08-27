@@ -33,6 +33,7 @@ interface LocationMapProps {
   isLiveTracking: boolean;
   highlightedLocation?: HighlightedLocation | null;
   onSelectLocation?: (placeName: string, lat: number, lng: number) => void;
+  onAddMemoryAtLocation?: (placeName: string, lat: number, lng: number) => void;
   onMarkRetrieved?: (memoryId: string) => void;
   onClearHighlight?: () => void;
   onRequestFreshGPS?: () => Promise<{ lat: number; lng: number; name: string } | null>;
@@ -47,6 +48,7 @@ export const LocationMap: React.FC<LocationMapProps> = ({
   isLiveTracking,
   highlightedLocation,
   onSelectLocation,
+  onAddMemoryAtLocation,
   onMarkRetrieved,
   onClearHighlight,
   onRequestFreshGPS,
@@ -214,12 +216,13 @@ export const LocationMap: React.FC<LocationMapProps> = ({
       </div>
     `;
 
-    if (onSelectLocation) {
+    const dropHandler = onAddMemoryAtLocation || onSelectLocation;
+    if (dropHandler) {
       const dropMemBtn = document.createElement('button');
-      dropMemBtn.innerText = '📍 Drop Memory at This GPS Spot';
-      dropMemBtn.style.cssText = 'background: #6366f1; color: #fff; border: none; padding: 6px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; width: 100%;';
+      dropMemBtn.innerText = '➕ Add Memory at This GPS Spot';
+      dropMemBtn.style.cssText = 'background: linear-gradient(135deg, #6366f1, #4f46e5); color: #ffffff; border: 1px solid rgba(255,255,255,0.2); padding: 8px 12px; border-radius: 8px; font-size: 11px; font-weight: 700; cursor: pointer; width: 100%; box-shadow: 0 4px 12px rgba(99,102,241,0.5); transition: transform 0.1s ease;';
       dropMemBtn.onclick = () => {
-        onSelectLocation(currentLocationName, userLatitude, userLongitude);
+        dropHandler(currentLocationName, userLatitude, userLongitude);
         userMarkerRef.current?.closePopup();
       };
       userPopupDiv.appendChild(dropMemBtn);

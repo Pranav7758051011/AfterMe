@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Sparkles, Mic, MicOff, Send, CheckCircle2, ShieldAlert, 
   Camera, Video, Image as ImageIcon, X, Car, Film, AlertCircle 
@@ -11,6 +11,7 @@ interface MemoryInputProps {
   currentLocation: string;
   userLatitude?: number;
   userLongitude?: number;
+  prefilledText?: string;
 }
 
 const EXAMPLE_PROMPTS = [
@@ -21,12 +22,22 @@ const EXAMPLE_PROMPTS = [
   'I left my AirPods on the 2nd floor library study table.',
 ];
 
-export const MemoryInput: React.FC<MemoryInputProps> = ({ onSave, currentLocation, userLatitude, userLongitude }) => {
-  const [text, setText] = useState('');
+export const MemoryInput: React.FC<MemoryInputProps> = ({ onSave, currentLocation, userLatitude, userLongitude, prefilledText }) => {
+  const [text, setText] = useState(prefilledText || '');
   const [attachedMedia, setAttachedMedia] = useState<{ type: 'image' | 'video'; base64: string; mimeType: string } | null>(null);
   const [isMediaModalOpen, setIsMediaModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lastExtraction, setLastExtraction] = useState<any | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (prefilledText !== undefined && prefilledText !== null) {
+      setText(prefilledText);
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
+    }
+  }, [prefilledText]);
 
   const { isListening, isSupported, errorMessage: micError, toggleListening } = useSpeechToText((transcript) => {
     setText((prev) => (prev ? `${prev} ${transcript}` : transcript));
@@ -75,7 +86,7 @@ export const MemoryInput: React.FC<MemoryInputProps> = ({ onSave, currentLocatio
   };
 
   return (
-    <div className="capture-card">
+    <div className="capture-card" id="memory-input-section">
       <div className="capture-label">
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Sparkles size={18} color="var(--accent-primary)" />
@@ -177,6 +188,7 @@ export const MemoryInput: React.FC<MemoryInputProps> = ({ onSave, currentLocatio
       <form onSubmit={handleSubmit}>
         <div className="capture-input-wrap">
           <input
+            ref={inputRef}
             type="text"
             className="capture-input"
             placeholder='e.g. "I left my black laptop charger in the conference room..."'
