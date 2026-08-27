@@ -64,10 +64,19 @@ export const LocationMap: React.FC<LocationMapProps> = ({
 
   // Initialize Map
   useEffect(() => {
-    if (!mapContainerRef.current || mapInstanceRef.current) return;
+    const container = mapContainerRef.current;
+    if (!container) return;
 
-    // Dark Matter CartoDB Basemap for futuristic aesthetic
-    const map = L.map(mapContainerRef.current, {
+    // Clean up any stale leaflet instance on the DOM node to prevent "already initialized" errors
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.remove();
+      mapInstanceRef.current = null;
+    }
+    try {
+      (container as any)._leaflet_id = null;
+    } catch {}
+
+    const map = L.map(container, {
       center: [userLatitude, userLongitude],
       zoom: 17,
       zoomControl: false,
@@ -98,16 +107,30 @@ export const LocationMap: React.FC<LocationMapProps> = ({
 
     mapInstanceRef.current = map;
 
-    // Invalidate map size after mount to prevent grey tile clipping
-    setTimeout(() => {
-      map.invalidateSize();
-    }, 200);
-    setTimeout(() => {
-      map.invalidateSize();
-    }, 600);
+    // Invalidate map size across multiple ticks to guarantee 100% tile rendering on tab switch
+    const t1 = setTimeout(() => map.invalidateSize(), 50);
+    const t2 = setTimeout(() => map.invalidateSize(), 200);
+    const t3 = setTimeout(() => map.invalidateSize(), 500);
+
+    // ResizeObserver ensures map tiles resize immediately when tab becomes visible
+    let resizeObserver: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      resizeObserver = new ResizeObserver(() => {
+        map.invalidateSize();
+      });
+      resizeObserver.observe(container);
+    }
 
     return () => {
-      map.remove();
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
+      try {
+        map.remove();
+      } catch {}
       mapInstanceRef.current = null;
     };
   }, []);
@@ -542,9 +565,9 @@ export const LocationMap: React.FC<LocationMapProps> = ({
   };
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '370px', borderRadius: '16px', overflow: 'hidden', border: '1px solid var(--border-subtle)' }}>
+    <div style={{ position: 'relative', width: '100%', height: '460px', minHeight: '460px', borderRadius: '16px', overflow: 'hidden', border: '1px solid var(--border-subtle)' }}>
       {/* Leaflet Map Canvas */}
-      <div ref={mapContainerRef} style={{ width: '100%', height: '100%' }} />
+      <div ref={mapContainerRef} style={{ width: '100%', height: '100%', minHeight: '460px' }} />
 
       {/* Floating Prominent Location Name Badge on Map (Top-Left) */}
       <div
