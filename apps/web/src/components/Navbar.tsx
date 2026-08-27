@@ -1,13 +1,17 @@
 import React from 'react';
 import { 
   Brain, MessageSquareQuote, Sparkles, RotateCcw, Play, User, 
-  Flame, LogIn, ShieldCheck, Phone, Radio, Bell, BarChart3, Download 
+  Flame, LogIn, ShieldCheck, Phone, Radio, Bell, BarChart3, Download,
+  LayoutDashboard, Compass, Mic 
 } from 'lucide-react';
 import { AppStats } from '../types';
 import { auth } from '../services/firebase';
+import { ActivePageTab } from './BottomNavBar';
 
 interface NavbarProps {
   stats: AppStats | null;
+  activeTab: ActivePageTab;
+  onNavigateToTab: (tab: ActivePageTab) => void;
   onOpenAsk: () => void;
   onOpenLiveCall: () => void;
   onOpenInsights: () => void;
@@ -23,6 +27,8 @@ interface NavbarProps {
 
 export const Navbar: React.FC<NavbarProps> = ({
   stats,
+  activeTab,
+  onNavigateToTab,
   onOpenAsk,
   onOpenLiveCall,
   onOpenInsights,
@@ -39,14 +45,91 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <header className="navbar">
-      <div className="logo-container">
-        <div className="logo-badge">
-          <Brain size={24} color="#ffffff" />
+      <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+        <div className="logo-container" onClick={() => onNavigateToTab('dashboard')} style={{ cursor: 'pointer' }}>
+          <div className="logo-badge">
+            <Brain size={24} color="#ffffff" />
+          </div>
+          <div>
+            <div className="logo-text">AfterMe</div>
+            <div className="logo-tagline">Proactive AI Memory &bull; Firebase Powered</div>
+          </div>
         </div>
-        <div>
-          <div className="logo-text">AfterMe</div>
-          <div className="logo-tagline">Proactive AI Memory &bull; Firebase Powered</div>
-        </div>
+
+        {/* Desktop Page Navigation Tabs */}
+        <nav className="desktop-page-nav" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button
+            type="button"
+            className={`btn btn-sm ${activeTab === 'dashboard' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => onNavigateToTab('dashboard')}
+            style={{
+              borderRadius: '20px',
+              padding: '6px 14px',
+              fontSize: '0.82rem',
+              fontWeight: 700,
+              background: activeTab === 'dashboard' ? 'rgba(128, 131, 255, 0.25)' : undefined,
+              borderColor: activeTab === 'dashboard' ? '#c0c1ff' : 'rgba(255,255,255,0.1)',
+              color: activeTab === 'dashboard' ? '#c0c1ff' : '#94a3b8',
+            }}
+          >
+            <LayoutDashboard size={14} />
+            <span>Dashboard</span>
+          </button>
+
+          <button
+            type="button"
+            className={`btn btn-sm ${activeTab === 'map' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => onNavigateToTab('map')}
+            style={{
+              borderRadius: '20px',
+              padding: '6px 14px',
+              fontSize: '0.82rem',
+              fontWeight: 700,
+              background: activeTab === 'map' ? 'rgba(128, 131, 255, 0.25)' : undefined,
+              borderColor: activeTab === 'map' ? '#c0c1ff' : 'rgba(255,255,255,0.1)',
+              color: activeTab === 'map' ? '#c0c1ff' : '#94a3b8',
+            }}
+          >
+            <Compass size={14} />
+            <span>Spatial Map</span>
+          </button>
+
+          <button
+            type="button"
+            className={`btn btn-sm ${activeTab === 'voice' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => onNavigateToTab('voice')}
+            style={{
+              borderRadius: '20px',
+              padding: '6px 14px',
+              fontSize: '0.82rem',
+              fontWeight: 700,
+              background: activeTab === 'voice' ? 'rgba(128, 131, 255, 0.25)' : undefined,
+              borderColor: activeTab === 'voice' ? '#c0c1ff' : 'rgba(255,255,255,0.1)',
+              color: activeTab === 'voice' ? '#c0c1ff' : '#94a3b8',
+            }}
+          >
+            <Mic size={14} />
+            <span>Live Voice</span>
+          </button>
+
+          <button
+            type="button"
+            className={`btn btn-sm ${activeTab === 'insights' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => onNavigateToTab('insights')}
+            style={{
+              borderRadius: '20px',
+              padding: '6px 14px',
+              fontSize: '0.82rem',
+              fontWeight: 700,
+              background: activeTab === 'insights' ? 'rgba(128, 131, 255, 0.25)' : undefined,
+              borderColor: activeTab === 'insights' ? '#c0c1ff' : 'rgba(255,255,255,0.1)',
+              color: activeTab === 'insights' ? '#c0c1ff' : '#94a3b8',
+            }}
+          >
+            <BarChart3 size={14} />
+            <span>Insights</span>
+          </button>
+        </nav>
       </div>
 
       <div className="nav-actions">
@@ -96,21 +179,6 @@ export const Navbar: React.FC<NavbarProps> = ({
           )}
         </button>
 
-        {/* AI Memory Spatial Insights Analytics */}
-        <button
-          className="btn btn-secondary btn-sm"
-          onClick={onOpenInsights}
-          title="View AI Spatial Memory Intelligence & Safety Analytics"
-          style={{
-            borderColor: 'rgba(99, 102, 241, 0.4)',
-            color: '#c7d2fe',
-            fontWeight: 600,
-          }}
-        >
-          <BarChart3 size={14} color="#818cf8" />
-          <span>📊 Insights</span>
-        </button>
-
         {/* Quick Judge Demo Presets */}
         <button
           className="btn btn-secondary btn-sm"
@@ -158,23 +226,6 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span>📲 Install App</span>
           </button>
         )}
-
-        {/* Gemini 2.0 Live Bidirectional Call Button */}
-        <button
-          className="btn btn-secondary btn-sm"
-          onClick={onOpenLiveCall}
-          style={{
-            background: 'linear-gradient(135deg, #059669, #10b981)',
-            borderColor: '#34d399',
-            color: '#ffffff',
-            fontWeight: 700,
-            boxShadow: '0 0 15px rgba(16, 185, 129, 0.4)',
-          }}
-          title="Start Live Bidirectional Voice Call with Gemini 2.5"
-        >
-          <Phone size={14} color="#ffffff" />
-          <span>📞 Live Voice Call</span>
-        </button>
 
         {/* Ask AfterMe Button */}
         <button className="btn btn-primary" onClick={onOpenAsk}>
