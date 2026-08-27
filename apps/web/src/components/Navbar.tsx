@@ -1,11 +1,15 @@
 import React from 'react';
-import { Brain, MessageSquareQuote, Sparkles, RotateCcw, Play, User, Flame, LogIn, ShieldCheck, LogOut } from 'lucide-react';
+import { 
+  Brain, MessageSquareQuote, Sparkles, RotateCcw, Play, User, 
+  Flame, LogIn, ShieldCheck, Phone, Radio, Bell 
+} from 'lucide-react';
 import { AppStats } from '../types';
 import { auth } from '../services/firebase';
 
 interface NavbarProps {
   stats: AppStats | null;
   onOpenAsk: () => void;
+  onOpenLiveCall: () => void;
   onOpenAuth: () => void;
   onSeedGolden: () => void;
   onSeedFull: () => void;
@@ -17,6 +21,7 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({
   stats,
   onOpenAsk,
+  onOpenLiveCall,
   onOpenAuth,
   onSeedGolden,
   onSeedFull,
@@ -114,6 +119,23 @@ export const Navbar: React.FC<NavbarProps> = ({
         >
           <RotateCcw size={14} />
           <span>Reset</span>
+        </button>
+
+        {/* Gemini 2.0 Live Bidirectional Call Button */}
+        <button
+          className="btn btn-secondary btn-sm"
+          onClick={onOpenLiveCall}
+          style={{
+            background: 'linear-gradient(135deg, #059669, #10b981)',
+            borderColor: '#34d399',
+            color: '#ffffff',
+            fontWeight: 700,
+            boxShadow: '0 0 15px rgba(16, 185, 129, 0.4)',
+          }}
+          title="Start Live Bidirectional Voice Call with Gemini 2.5"
+        >
+          <Phone size={14} color="#ffffff" />
+          <span>📞 Live Voice Call</span>
         </button>
 
         {/* Ask AfterMe Button */}

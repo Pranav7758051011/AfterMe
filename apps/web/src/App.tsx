@@ -7,11 +7,14 @@ import { MemoryCard } from './components/MemoryCard';
 import { AskAfterMeDrawer } from './components/AskAfterMeDrawer';
 import { DemoScenarioSelector } from './components/DemoScenarioSelector';
 import { AuthModal } from './components/AuthModal';
+import { BeaconScannerWidget } from './components/BeaconScannerWidget';
+import { LiveVoiceCallModal } from './components/LiveVoiceCallModal';
 import { HighlightedLocation } from './components/LocationMap';
 import { api, getApiUserId, setApiUser } from './services/api';
 import { Memory, ProactiveAlert, AppStats, AskResponse } from './types';
 import { useGeolocation } from './hooks/useGeolocation';
-import { Brain, Filter, Search, Inbox, Satellite } from 'lucide-react';
+import { usePushNotifications } from './hooks/usePushNotifications';
+import { Brain, Filter, Search, Inbox, Satellite, Bell } from 'lucide-react';
 
 export const App: React.FC = () => {
   const [userId, setUserId] = useState(getApiUserId());
@@ -27,12 +30,16 @@ export const App: React.FC = () => {
   const [activeFilter, setActiveFilter] = useState<'all' | 'potentially_forgotten' | 'belonging' | 'task' | 'document' | 'event'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isAskOpen, setIsAskOpen] = useState(false);
+  const [isLiveCallOpen, setIsLiveCallOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [prefilledMemoryText, setPrefilledMemoryText] = useState<string | undefined>(undefined);
 
   // Live GPS Geolocation Hook
   const geo = useGeolocation(true);
+
+  // Browser Native Push Notifications Hook
+  const { sendNotification, requestPermission, permission } = usePushNotifications();
 
   const handleAddMemoryAtLocation = (placeName: string, lat: number, lng: number) => {
     setCurrentLocation(placeName);
@@ -63,6 +70,16 @@ export const App: React.FC = () => {
       setCurrentLocation(name);
     }
   }, [geo.latitude, geo.longitude, geo.accuracy, geo.locationName]);
+
+  // Trigger system desktop/mobile push notification on new alerts
+  useEffect(() => {
+    if (alerts.length > 0) {
+      const latest = alerts[0];
+      sendNotification('🚨 AfterMe: You may have left something behind!', {
+        body: latest.message,
+      });
+    }
+  }, [alerts, sendNotification]);
 
   // Load all data from Firebase Firestore
   const refreshData = useCallback(async () => {
@@ -106,6 +123,7 @@ export const App: React.FC = () => {
     options?: { imageUrl?: string; imageBase64?: string; latitude?: number; longitude?: number }
   ) => {
     const res = await api.createMemory(text, currentLocation, options);
+    setPrefilledMemoryText(undefined);
     await refreshData();
     return res;
   };
@@ -125,66 +143,51 @@ export const App: React.FC = () => {
     }
   };
 
-  // GPS Location update
-  const handleGPSLocationChange = async (lat: number, lng: number, accuracy = 10, placeName?: string) => {
+  const handleGPSLocationChange = async (lat: number, lng: number, accuracy?: number, placeName?: string) => {
+    setUserLatitude(lat);
+    setUserLongitude(lng);
+    if (accuracy) setUserAccuracy(accuracy);
+    if (placeName) setCurrentLocation(placeName);
     try {
-      setUserLatitude(lat);
-      setUserLongitude(lng);
-      setUserAccuracy(accuracy);
-      if (placeName) setCurrentLocation(placeName);
-
       const res = await api.sendGPSLocation(lat, lng, accuracy, placeName);
       if (res.alerts) setAlerts(res.alerts);
       await refreshData();
-    } catch (err) {
-      console.error('Error sending GPS location:', err);
+    } catch (e) {
+      console.error('GPS update failed:', e);
     }
   };
 
-  // Locate & circle on map
-  const handleLocateOnMap = (loc: HighlightedLocation) => {
-    setHighlightedLocation(loc);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  // Dismiss alert
-  const handleDismissAlert = async (alertId: string) => {
-    await api.dismissAlert(alertId);
-    setAlerts((prev) => prev.filter((a) => a.id !== alertId));
-    await refreshData();
-  };
-
-  // Mark retrieved from alert
-  const handleMarkRetrieved = async (memoryId: string, alertId?: string) => {
-    await api.updateMemoryStatus(memoryId, 'retrieved');
-    if (alertId) await api.dismissAlert(alertId);
-    if (highlightedLocation?.memoryId === memoryId) {
-      setHighlightedLocation(null);
-    }
-    await refreshData();
-  };
-
-  // Status toggle from card
   const handleStatusChange = async (id: string, status: string) => {
     await api.updateMemoryStatus(id, status);
     await refreshData();
   };
 
-  // Delete memory
   const handleDeleteMemory = async (id: string) => {
     await api.deleteMemory(id);
-    if (highlightedLocation?.memoryId === id) {
-      setHighlightedLocation(null);
+    await refreshData();
+  };
+
+  const handleDismissAlert = async (id: string) => {
+    await api.dismissAlert(id);
+    setAlerts((prev) => prev.filter((a) => a.id !== id));
+  };
+
+  const handleMarkRetrieved = async (id: string, alertId?: string) => {
+    await api.updateMemoryStatus(id, 'retrieved');
+    if (alertId) {
+      await api.dismissAlert(alertId);
     }
     await refreshData();
   };
 
-  // Ask AfterMe
-  const handleAsk = async (question: string): Promise<AskResponse> => {
+  const handleAsk = async (question: string) => {
     return api.askAfterMe(question, currentLocation);
   };
 
-  // Demo triggers
+  const handleLocateOnMap = (loc: { lat: number; lng: number; name: string; label?: string; memoryId?: string }) => {
+    setHighlightedLocation(loc);
+  };
+
   const handleSeedGolden = async () => {
     setIsLoading(true);
     await api.seedGoldenDemo();
@@ -231,6 +234,7 @@ export const App: React.FC = () => {
         stats={stats}
         userId={userId}
         onOpenAsk={() => setIsAskOpen(true)}
+        onOpenLiveCall={() => setIsLiveCallOpen(true)}
         onOpenAuth={() => setIsAuthOpen(true)}
         onSeedGolden={handleSeedGolden}
         onSeedFull={handleSeedFull}
@@ -247,6 +251,9 @@ export const App: React.FC = () => {
         }}
         isLoading={isLoading}
       />
+
+      {/* Bluetooth Low Energy Indoor Beacon Radar Widget */}
+      <BeaconScannerWidget />
 
       {/* Interactive Map & Geofenced Location Simulator */}
       <LocationSimulator
@@ -318,29 +325,22 @@ export const App: React.FC = () => {
           >
             📁 Documents ({memories.filter((m) => m.memory_type === 'document').length})
           </button>
-          <button
-            className={`filter-tab ${activeFilter === 'event' ? 'active' : ''}`}
-            onClick={() => setActiveFilter('event')}
-          >
-            📅 Events ({memories.filter((m) => m.memory_type === 'event').length})
-          </button>
         </div>
 
-        {/* Quick Search */}
-        <div style={{ position: 'relative', width: '220px' }}>
+        {/* Search Input Bar */}
+        <div className="search-bar">
+          <Search size={16} color="var(--text-muted)" />
           <input
             type="text"
-            placeholder="Search memories..."
+            className="search-input"
+            placeholder="Search memories, places, or items..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="capture-input"
-            style={{ padding: '8px 12px 8px 34px', fontSize: '0.85rem' }}
           />
-          <Search size={14} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
         </div>
       </div>
 
-      {/* Memory Cards Grid */}
+      {/* Memories Grid Stream */}
       {filteredMemories.length > 0 ? (
         <div className="memory-grid">
           {filteredMemories.map((memory) => (
@@ -374,6 +374,13 @@ export const App: React.FC = () => {
         onAsk={handleAsk}
         currentLocation={currentLocation}
         onLocateOnMap={handleLocateOnMap}
+      />
+
+      {/* Gemini 2.0 Live Bidirectional Voice Call Modal */}
+      <LiveVoiceCallModal
+        isOpen={isLiveCallOpen}
+        onClose={() => setIsLiveCallOpen(false)}
+        currentLocation={currentLocation}
       />
 
       {/* Firebase Auth Switcher Modal */}
