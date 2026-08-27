@@ -1,7 +1,7 @@
 import React from 'react';
 import { 
   Brain, MessageSquareQuote, Sparkles, RotateCcw, Play, User, 
-  Flame, LogIn, ShieldCheck, Phone, Radio, Bell 
+  Flame, LogIn, ShieldCheck, Phone, Radio, Bell, BarChart3, Download 
 } from 'lucide-react';
 import { AppStats } from '../types';
 import { auth } from '../services/firebase';
@@ -10,10 +10,13 @@ interface NavbarProps {
   stats: AppStats | null;
   onOpenAsk: () => void;
   onOpenLiveCall: () => void;
+  onOpenInsights: () => void;
   onOpenAuth: () => void;
   onSeedGolden: () => void;
   onSeedFull: () => void;
   onResetDemo: () => void;
+  onInstallPWA?: () => void;
+  canInstallPWA?: boolean;
   isLoading: boolean;
   userId: string;
 }
@@ -22,10 +25,13 @@ export const Navbar: React.FC<NavbarProps> = ({
   stats,
   onOpenAsk,
   onOpenLiveCall,
+  onOpenInsights,
   onOpenAuth,
   onSeedGolden,
   onSeedFull,
   onResetDemo,
+  onInstallPWA,
+  canInstallPWA,
   isLoading,
   userId,
 }) => {
@@ -90,6 +96,21 @@ export const Navbar: React.FC<NavbarProps> = ({
           )}
         </button>
 
+        {/* AI Memory Spatial Insights Analytics */}
+        <button
+          className="btn btn-secondary btn-sm"
+          onClick={onOpenInsights}
+          title="View AI Spatial Memory Intelligence & Safety Analytics"
+          style={{
+            borderColor: 'rgba(99, 102, 241, 0.4)',
+            color: '#c7d2fe',
+            fontWeight: 600,
+          }}
+        >
+          <BarChart3 size={14} color="#818cf8" />
+          <span>📊 Insights</span>
+        </button>
+
         {/* Quick Judge Demo Presets */}
         <button
           className="btn btn-secondary btn-sm"
@@ -120,6 +141,23 @@ export const Navbar: React.FC<NavbarProps> = ({
           <RotateCcw size={14} />
           <span>Reset</span>
         </button>
+
+        {/* PWA Install Button */}
+        {canInstallPWA && onInstallPWA && (
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={onInstallPWA}
+            title="Install AfterMe as standalone Desktop / Mobile app"
+            style={{
+              borderColor: 'rgba(56, 189, 248, 0.4)',
+              color: '#38bdf8',
+              fontWeight: 700,
+            }}
+          >
+            <Download size={14} color="#38bdf8" />
+            <span>📲 Install App</span>
+          </button>
+        )}
 
         {/* Gemini 2.0 Live Bidirectional Call Button */}
         <button

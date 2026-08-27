@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
   MapPin, Clock, Calendar, Check, RotateCcw, Trash2, 
-  AlertTriangle, FileText, CheckCircle2, User, Lightbulb, Package, Target, Image as ImageIcon, X, Car, Film, Play
+  AlertTriangle, FileText, CheckCircle2, User, Lightbulb, Package, Target, Image as ImageIcon, X, Car, Film, Play, Share2
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { Memory } from '../types';
@@ -12,9 +12,10 @@ interface MemoryCardProps {
   onStatusChange: (id: string, status: string) => void;
   onDelete: (id: string) => void;
   onLocateOnMap?: (location: { lat: number; lng: number; name: string; label?: string; memoryId?: string }) => void;
+  onShare?: (memory: Memory) => void;
 }
 
-export const MemoryCard: React.FC<MemoryCardProps> = ({ memory, onStatusChange, onDelete, onLocateOnMap }) => {
+export const MemoryCard: React.FC<MemoryCardProps> = ({ memory, onStatusChange, onDelete, onLocateOnMap, onShare }) => {
   const [showImageModal, setShowImageModal] = useState(false);
   const isRetrieved = memory.status === 'retrieved';
   const isCompleted = memory.status === 'completed';
@@ -322,6 +323,18 @@ export const MemoryCard: React.FC<MemoryCardProps> = ({ memory, onStatusChange, 
           >
             <Target size={13} color="#10b981" />
             <span>Circle Area</span>
+          </button>
+        )}
+
+        {onShare && (
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={() => onShare(memory)}
+            title="Share & Handover Item with QR Code"
+            style={{ padding: '6px 10px', fontSize: '0.78rem', color: '#818cf8', borderColor: 'rgba(99, 102, 241, 0.4)' }}
+          >
+            <Share2 size={13} color="#818cf8" />
+            <span>Share</span>
           </button>
         )}
 

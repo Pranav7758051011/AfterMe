@@ -9,6 +9,8 @@ import { DemoScenarioSelector } from './components/DemoScenarioSelector';
 import { AuthModal } from './components/AuthModal';
 import { BeaconScannerWidget } from './components/BeaconScannerWidget';
 import { LiveVoiceCallModal } from './components/LiveVoiceCallModal';
+import { ShareMemoryModal } from './components/ShareMemoryModal';
+import { MemoryInsightsModal } from './components/MemoryInsightsModal';
 import { HighlightedLocation } from './components/LocationMap';
 import { api, getApiUserId, setApiUser } from './services/api';
 import { Memory, ProactiveAlert, AppStats, AskResponse } from './types';
@@ -32,14 +34,39 @@ export const App: React.FC = () => {
   const [isAskOpen, setIsAskOpen] = useState(false);
   const [isLiveCallOpen, setIsLiveCallOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [isInsightsOpen, setIsInsightsOpen] = useState(false);
+  const [sharingMemory, setSharingMemory] = useState<Memory | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [prefilledMemoryText, setPrefilledMemoryText] = useState<string | undefined>(undefined);
+  
+  // PWA Installation prompt state
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
 
   // Live GPS Geolocation Hook
   const geo = useGeolocation(true);
 
   // Browser Native Push Notifications Hook
-  const { sendNotification, requestPermission, permission } = usePushNotifications();
+  const { sendNotification } = usePushNotifications();
+
+  // PWA Install Event Listener
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+  }, []);
+
+  const handleInstallPWA = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setDeferredPrompt(null);
+    }
+  };
 
   const handleAddMemoryAtLocation = (placeName: string, lat: number, lng: number) => {
     setCurrentLocation(placeName);
@@ -235,10 +262,13 @@ export const App: React.FC = () => {
         userId={userId}
         onOpenAsk={() => setIsAskOpen(true)}
         onOpenLiveCall={() => setIsLiveCallOpen(true)}
+        onOpenInsights={() => setIsInsightsOpen(true)}
         onOpenAuth={() => setIsAuthOpen(true)}
         onSeedGolden={handleSeedGolden}
         onSeedFull={handleSeedFull}
         onResetDemo={handleResetDemo}
+        onInstallPWA={handleInstallPWA}
+        canInstallPWA={Boolean(deferredPrompt)}
         isLoading={isLoading}
       />
 
@@ -350,6 +380,7 @@ export const App: React.FC = () => {
               onStatusChange={handleStatusChange}
               onDelete={handleDeleteMemory}
               onLocateOnMap={handleLocateOnMap}
+              onShare={(mem) => setSharingMemory(mem)}
             />
           ))}
         </div>
@@ -381,6 +412,21 @@ export const App: React.FC = () => {
         isOpen={isLiveCallOpen}
         onClose={() => setIsLiveCallOpen(false)}
         currentLocation={currentLocation}
+      />
+
+      {/* 1-Click Item Handover & QR Code Share Modal */}
+      <ShareMemoryModal
+        isOpen={Boolean(sharingMemory)}
+        memory={sharingMemory}
+        onClose={() => setSharingMemory(null)}
+      />
+
+      {/* AI Spatial Memory Intelligence & Safety Analytics Modal */}
+      <MemoryInsightsModal
+        isOpen={isInsightsOpen}
+        onClose={() => setIsInsightsOpen(false)}
+        memories={memories}
+        stats={stats}
       />
 
       {/* Firebase Auth Switcher Modal */}
