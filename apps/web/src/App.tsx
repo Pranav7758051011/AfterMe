@@ -11,6 +11,7 @@ import { BeaconScannerWidget } from './components/BeaconScannerWidget';
 import { LiveVoiceCallModal } from './components/LiveVoiceCallModal';
 import { ShareMemoryModal } from './components/ShareMemoryModal';
 import { MemoryInsightsModal } from './components/MemoryInsightsModal';
+import { ShaderBackground } from './components/ShaderBackground';
 import { HighlightedLocation } from './components/LocationMap';
 import { api, getApiUserId, setApiUser } from './services/api';
 import { Memory, ProactiveAlert, AppStats, AskResponse } from './types';
@@ -255,7 +256,10 @@ export const App: React.FC = () => {
   });
 
   return (
-    <div className="app-container">
+    <div className="app-container" style={{ position: 'relative' }}>
+      {/* WebGL Obsidian Shader Background */}
+      <ShaderBackground />
+
       {/* Header & Logo */}
       <Navbar
         stats={stats}
