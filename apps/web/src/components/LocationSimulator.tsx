@@ -47,6 +47,7 @@ interface LocationSimulatorProps {
   onToggleLiveTracking?: () => void;
   onMarkRetrieved?: (memoryId: string) => void;
   onClearHighlight?: () => void;
+  onRequestFreshGPS?: () => Promise<{ lat: number; lng: number; name: string } | null>;
   isLoading: boolean;
 }
 
@@ -64,6 +65,7 @@ export const LocationSimulator: React.FC<LocationSimulatorProps> = ({
   onToggleLiveTracking,
   onMarkRetrieved,
   onClearHighlight,
+  onRequestFreshGPS,
   isLoading,
 }) => {
   const [showMap, setShowMap] = useState(true);
@@ -172,6 +174,7 @@ export const LocationSimulator: React.FC<LocationSimulatorProps> = ({
             onSelectLocation={handleCustomMapSelect}
             onMarkRetrieved={onMarkRetrieved}
             onClearHighlight={onClearHighlight}
+            onRequestFreshGPS={onRequestFreshGPS}
           />
         </div>
       )}

@@ -1,11 +1,14 @@
 import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { 
+  MapPin, Navigation, Crosshair, Sparkles, Satellite, Compass, 
+  Target, Car, AlertTriangle, ShieldCheck, Layers 
+} from 'lucide-react';
 import { Memory } from '../types';
 import { KNOWN_PLACES } from './LocationSimulator';
-import { MapPin, Navigation, Compass, ShieldAlert, Sparkles, Check, Building2, Crosshair, Target, Satellite, Radio } from 'lucide-react';
 
-// Fix Leaflet default icon paths in bundler
+// Fix Leaflet's default icon path in bundler environments
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
@@ -32,6 +35,7 @@ interface LocationMapProps {
   onSelectLocation?: (placeName: string, lat: number, lng: number) => void;
   onMarkRetrieved?: (memoryId: string) => void;
   onClearHighlight?: () => void;
+  onRequestFreshGPS?: () => Promise<{ lat: number; lng: number; name: string } | null>;
 }
 
 export const LocationMap: React.FC<LocationMapProps> = ({
@@ -45,6 +49,7 @@ export const LocationMap: React.FC<LocationMapProps> = ({
   onSelectLocation,
   onMarkRetrieved,
   onClearHighlight,
+  onRequestFreshGPS,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -59,32 +64,44 @@ export const LocationMap: React.FC<LocationMapProps> = ({
   useEffect(() => {
     if (!mapContainerRef.current || mapInstanceRef.current) return;
 
+    // Dark Matter CartoDB Basemap for futuristic aesthetic
     const map = L.map(mapContainerRef.current, {
       center: [userLatitude, userLongitude],
       zoom: 17,
-      zoomControl: true,
+      zoomControl: false,
       attributionControl: false,
     });
 
-    // Sleek Dark Matter Tiles (CartoDB)
+    L.control.zoom({ position: 'bottomright' }).addTo(map);
+
     L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
       maxZoom: 19,
       subdomains: 'abcd',
     }).addTo(map);
 
-    markersLayerRef.current = L.layerGroup().addTo(map);
+    // Layer Groups
     geofencesLayerRef.current = L.layerGroup().addTo(map);
     distanceLinesLayerRef.current = L.layerGroup().addTo(map);
+    markersLayerRef.current = L.layerGroup().addTo(map);
     highlightLayerRef.current = L.layerGroup().addTo(map);
+
+    // Add click handler to select custom coordinates
+    map.on('click', (e: L.LeafletMouseEvent) => {
+      if (onSelectLocation) {
+        const { lat, lng } = e.latlng;
+        onSelectLocation(`GPS Point (${lat.toFixed(4)}, ${lng.toFixed(4)})`, lat, lng);
+      }
+    });
 
     mapInstanceRef.current = map;
 
-    // Handle map click to drop custom location pin
-    map.on('click', (e: L.LeafletMouseEvent) => {
-      if (onSelectLocation) {
-        onSelectLocation(`Custom Pin (${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)})`, e.latlng.lat, e.latlng.lng);
-      }
-    });
+    // Invalidate map size after mount to prevent grey tile clipping
+    setTimeout(() => {
+      map.invalidateSize();
+    }, 200);
+    setTimeout(() => {
+      map.invalidateSize();
+    }, 600);
 
     return () => {
       map.remove();
@@ -103,15 +120,15 @@ export const LocationMap: React.FC<LocationMapProps> = ({
     const userPulseIcon = L.divIcon({
       className: 'custom-user-gps-pin',
       html: `
-        <div style="position: relative; width: 40px; height: 50px; display: flex; flex-direction: column; align-items: center;">
+        <div style="position: relative; width: 44px; height: 54px; display: flex; flex-direction: column; align-items: center;">
           <!-- Glowing Animated Radar Ring -->
           <div style="
             position: absolute;
-            width: 48px;
-            height: 48px;
+            width: 52px;
+            height: 52px;
             top: -4px;
-            background: rgba(99, 102, 241, 0.25);
-            border: 2px solid rgba(99, 102, 241, 0.6);
+            background: rgba(99, 102, 241, 0.3);
+            border: 2px solid rgba(99, 102, 241, 0.8);
             border-radius: 50%;
             animation: radarPulse 2s infinite;
             pointer-events: none;
@@ -120,18 +137,18 @@ export const LocationMap: React.FC<LocationMapProps> = ({
           <!-- Top Pin Head with Satellite / MapPin Badge -->
           <div style="
             position: relative;
-            width: 32px;
-            height: 32px;
-            background: linear-gradient(135deg, #6366f1, #4f46e5);
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, #6366f1, #4338ca);
             border: 3px solid #ffffff;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 0 20px rgba(99, 102, 241, 0.9), 0 4px 10px rgba(0,0,0,0.5);
+            box-shadow: 0 0 25px rgba(99, 102, 241, 1), 0 4px 12px rgba(0,0,0,0.6);
             z-index: 10;
             color: #ffffff;
-            font-size: 14px;
+            font-size: 16px;
             animation: bounce 2s infinite ease-in-out;
           ">
             ${isLiveTracking ? '🛰️' : '📍'}
@@ -141,27 +158,27 @@ export const LocationMap: React.FC<LocationMapProps> = ({
           <div style="
             width: 0;
             height: 0;
-            border-left: 6px solid transparent;
-            border-right: 6px solid transparent;
-            border-top: 8px solid #4f46e5;
+            border-left: 7px solid transparent;
+            border-right: 7px solid transparent;
+            border-top: 10px solid #4338ca;
             margin-top: -2px;
             z-index: 9;
-            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
           "></div>
 
           <!-- Ground Shadow / Base Dot -->
           <div style="
-            width: 8px;
-            height: 4px;
-            background: rgba(0, 0, 0, 0.6);
+            width: 10px;
+            height: 5px;
+            background: rgba(0, 0, 0, 0.7);
             border-radius: 50%;
             margin-top: 1px;
           "></div>
         </div>
       `,
-      iconSize: [40, 50],
-      iconAnchor: [20, 42],
-      popupAnchor: [0, -42],
+      iconSize: [44, 54],
+      iconAnchor: [22, 46],
+      popupAnchor: [0, -46],
     });
 
     // Create or Update User GPS Marker
@@ -175,7 +192,7 @@ export const LocationMap: React.FC<LocationMapProps> = ({
         permanent: true,
         direction: 'top',
         className: 'user-location-tooltip',
-        offset: [0, -42],
+        offset: [0, -46],
       });
     }
 
@@ -224,7 +241,7 @@ export const LocationMap: React.FC<LocationMapProps> = ({
       }).addTo(map);
     }
 
-    if (isLiveTracking && !highlightedLocation) {
+    if (!highlightedLocation) {
       map.panTo(userLatLng, { animate: true });
     }
   }, [userLatitude, userLongitude, userAccuracy, currentLocationName, isLiveTracking, highlightedLocation, onSelectLocation]);
@@ -259,17 +276,35 @@ export const LocationMap: React.FC<LocationMapProps> = ({
             <div style="
               width: 100%;
               height: 100%;
-              border: 3px solid #10b981;
-              background: rgba(16, 185, 129, 0.4);
               border-radius: 50%;
-              animation: targetPulse 1.5s infinite;
+              background: rgba(16, 185, 129, 0.4);
+              border: 3px solid #10b981;
+              box-shadow: 0 0 25px #10b981;
               display: flex;
               align-items: center;
               justify-content: center;
               font-size: 20px;
-              box-shadow: 0 0 25px #10b981;
+              color: #ffffff;
+              animation: targetPulse 1.5s infinite;
             ">
               🎯
+            </div>
+            <div style="
+              position: absolute;
+              bottom: -24px;
+              left: 50%;
+              transform: translateX(-50%);
+              background: #0f172a;
+              color: #34d399;
+              padding: 2px 8px;
+              border-radius: 4px;
+              border: 1px solid #10b981;
+              font-size: 10px;
+              font-weight: 800;
+              white-space: nowrap;
+              box-shadow: 0 2px 8px rgba(0,0,0,0.6);
+            ">
+              ${highlightedLocation.label || highlightedLocation.name}
             </div>
           </div>
         `,
@@ -279,114 +314,112 @@ export const LocationMap: React.FC<LocationMapProps> = ({
 
       const targetMarker = L.marker(targetLatLng, { icon: targetIcon, zIndexOffset: 2000 }).addTo(highlightLayer);
 
-      // Distance from user
-      const distMeters = Math.round(
-        map.distance([userLatitude, userLongitude], targetLatLng)
-      );
-
-      // Target popup content
-      const popupDiv = document.createElement('div');
-      popupDiv.style.padding = '6px';
-      popupDiv.innerHTML = `
-        <div style="display: flex; align-items: center; gap: 6px; font-weight: 800; font-size: 15px; color: #047857; margin-bottom: 4px;">
-          <span>🎯 Found Requested Item Area!</span>
+      targetMarker.bindPopup(`
+        <div style="padding: 4px;">
+          <div style="font-weight: 800; font-size: 13px; color: #059669; margin-bottom: 2px;">
+            🎯 Target Location Identified
+          </div>
+          <div style="font-weight: 700; font-size: 12px; color: #0f172a; margin-bottom: 4px;">
+            ${highlightedLocation.name}
+          </div>
+          <div style="font-size: 11px; color: #475569;">
+            ${highlightedLocation.label ? `"${highlightedLocation.label}"` : 'Area circled based on your query.'}
+          </div>
         </div>
-        <div style="font-weight: 700; font-size: 14px; color: #0f172a; margin-bottom: 2px;">
-          ${highlightedLocation.label || 'Item'}
-        </div>
-        <div style="font-size: 12px; color: #4338ca; font-weight: 600; margin-bottom: 4px;">
-          📍 ${highlightedLocation.name} &bull; <strong>${distMeters}m away from you</strong>
-        </div>
-        <div style="font-size: 11px; color: #64748b; margin-bottom: 10px;">
-          Circled location area on map based on your query.
-        </div>
-      `;
+      `);
 
-      if (highlightedLocation.memoryId && onMarkRetrieved) {
-        const btn = document.createElement('button');
-        btn.innerText = '✓ Mark Retrieved';
-        btn.style.cssText = 'background: #10b981; color: #fff; border: none; padding: 6px 12px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; width: 100%; margin-bottom: 4px;';
-        btn.onclick = () => {
-          onMarkRetrieved(highlightedLocation.memoryId!);
-          targetMarker.closePopup();
-        };
-        popupDiv.appendChild(btn);
-      }
+      // 3. Smoothly fly map to center the circled target area!
+      map.flyTo(targetLatLng, 18, {
+        animate: true,
+        duration: 1.2,
+      });
 
-      if (onClearHighlight) {
-        const clearBtn = document.createElement('button');
-        clearBtn.innerText = 'Dismiss Circle';
-        clearBtn.style.cssText = 'background: rgba(0,0,0,0.06); color: #475569; border: 1px solid #cbd5e1; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; width: 100%;';
-        clearBtn.onclick = () => onClearHighlight();
-        popupDiv.appendChild(clearBtn);
-      }
-
-      targetMarker.bindPopup(popupDiv).openPopup();
-
-      // Smoothly fly map to the circled area
-      map.flyTo(targetLatLng, 18, { duration: 1.2 });
+      setTimeout(() => {
+        targetMarker.openPopup();
+      }, 1300);
     }
-  }, [highlightedLocation, userLatitude, userLongitude, onMarkRetrieved, onClearHighlight]);
+  }, [highlightedLocation]);
 
-  // Update Geofence Circles & Memory Pins
+  // Update Known Places Geofence Zones
   useEffect(() => {
     const map = mapInstanceRef.current;
     const geofencesLayer = geofencesLayerRef.current;
-    const markersLayer = markersLayerRef.current;
-    const distanceLinesLayer = distanceLinesLayerRef.current;
-
-    if (!map || !geofencesLayer || !markersLayer || !distanceLinesLayer) return;
+    if (!map || !geofencesLayer) return;
 
     geofencesLayer.clearLayers();
+
+    KNOWN_PLACES.forEach((place) => {
+      const isCurrentPlace = currentLocationName.toLowerCase().includes(place.name.toLowerCase());
+
+      const circle = L.circle([place.lat, place.lng], {
+        radius: place.radius || 70,
+        color: isCurrentPlace ? '#6366f1' : 'rgba(148, 163, 184, 0.4)',
+        weight: isCurrentPlace ? 2 : 1,
+        dashArray: isCurrentPlace ? undefined : '4, 4',
+        fillColor: isCurrentPlace ? '#6366f1' : '#334155',
+        fillOpacity: isCurrentPlace ? 0.12 : 0.04,
+      }).addTo(geofencesLayer);
+
+      const zoneIcon = L.divIcon({
+        className: 'custom-zone-label',
+        html: `
+          <div style="
+            background: rgba(15, 23, 42, 0.85);
+            border: 1px solid ${isCurrentPlace ? 'rgba(99, 102, 241, 0.6)' : 'rgba(255,255,255,0.1)'};
+            color: ${isCurrentPlace ? '#a5b4fc' : '#94a3b8'};
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-size: 10px;
+            font-weight: 700;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+          ">
+            <span>${place.name}</span>
+          </div>
+        `,
+        iconSize: [80, 20],
+        iconAnchor: [40, 10],
+      });
+
+      const zoneMarker = L.marker([place.lat, place.lng], { icon: zoneIcon }).addTo(geofencesLayer);
+
+      zoneMarker.on('click', () => {
+        if (onSelectLocation) {
+          onSelectLocation(place.name, place.lat, place.lng);
+        }
+      });
+    });
+  }, [currentLocationName, onSelectLocation]);
+
+  // Render Memories & Belonging Pins on Map
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    const markersLayer = markersLayerRef.current;
+    const distanceLinesLayer = distanceLinesLayerRef.current;
+    if (!map || !markersLayer || !distanceLinesLayer) return;
+
     markersLayer.clearLayers();
     distanceLinesLayer.clearLayers();
 
-    // Render Preset Geofence Boundaries
-    KNOWN_PLACES.forEach((place) => {
-      const isCurrent = place.name.toLowerCase() === currentLocationName.toLowerCase();
-      const circle = L.circle([place.lat, place.lng], {
-        radius: place.radius || 60,
-        color: isCurrent ? '#10b981' : '#f59e0b',
-        dashArray: isCurrent ? undefined : '6, 6',
-        weight: isCurrent ? 2 : 1.5,
-        fillColor: isCurrent ? '#10b981' : '#f59e0b',
-        fillOpacity: isCurrent ? 0.12 : 0.05,
-      });
-
-      circle.bindTooltip(`<b>📍 ${place.name}</b><br/><span style="font-size:11px;color:#94a3b8;">${place.radius}m Geofence</span>`, {
-        direction: 'center',
-        permanent: false,
-      });
-
-      circle.on('click', () => {
-        if (onSelectLocation) onSelectLocation(place.name, place.lat, place.lng);
-      });
-
-      circle.addTo(geofencesLayer);
-    });
-
-    // Render Memory Pins
     memories.forEach((memory) => {
-      if (memory.status === 'retrieved' || memory.status === 'completed' || memory.status === 'archived') {
-        return;
-      }
-
-      // Determine item coordinate
       let itemLat = memory.latitude;
       let itemLng = memory.longitude;
 
       if ((itemLat === null || itemLat === undefined) && memory.location) {
-        const matchedPlace = KNOWN_PLACES.find((p) => memory.location?.toLowerCase().includes(p.name.toLowerCase()));
-        if (matchedPlace) {
-          itemLat = matchedPlace.lat;
-          itemLng = matchedPlace.lng;
+        const match = KNOWN_PLACES.find((p) => memory.location?.toLowerCase().includes(p.name.toLowerCase()));
+        if (match) {
+          itemLat = match.lat;
+          itemLng = match.lng;
         }
       }
 
       if (itemLat !== null && itemLat !== undefined && itemLng !== null && itemLng !== undefined) {
         const isForgotten = memory.status === 'potentially_forgotten';
         const isCritical = memory.risk_level === 'critical' || memory.risk_level === 'high';
-        const isVehicle = memory.object?.toLowerCase().includes('car') || memory.location?.toLowerCase().includes('park');
+        const isVehicle = memory.object?.toLowerCase().includes('car') || memory.object?.toLowerCase().includes('park') || memory.location?.toLowerCase().includes('park');
 
         const markerHtml = `
           <div style="
@@ -416,12 +449,10 @@ export const LocationMap: React.FC<LocationMapProps> = ({
 
         const memMarker = L.marker([itemLat, itemLng], { icon: itemIcon }).addTo(markersLayer);
 
-        // Distance from user to item
         const distMeters = Math.round(
           map.distance([userLatitude, userLongitude], [itemLat, itemLng])
         );
 
-        // Popup content with location name and action
         const popupContent = document.createElement('div');
         popupContent.style.padding = '4px';
         popupContent.innerHTML = `
@@ -451,7 +482,6 @@ export const LocationMap: React.FC<LocationMapProps> = ({
 
         memMarker.bindPopup(popupContent);
 
-        // Draw connecting dashed line from user to left items
         if (isForgotten || isCritical) {
           L.polyline([[userLatitude, userLongitude], [itemLat, itemLng]], {
             color: isForgotten ? '#ef4444' : '#f59e0b',
@@ -464,11 +494,24 @@ export const LocationMap: React.FC<LocationMapProps> = ({
     });
   }, [memories, currentLocationName, userLatitude, userLongitude, onSelectLocation, onMarkRetrieved]);
 
-  // Center On User action: fly to user coordinates and open interactive GPS Pin popup!
-  const handleCenterOnUser = () => {
+  // Center On User action: forcefully refresh GPS, fly to user coordinates, and open interactive GPS Pin popup!
+  const handleCenterOnUser = async () => {
+    let targetLat = userLatitude;
+    let targetLng = userLongitude;
+
+    if (onRequestFreshGPS) {
+      const fresh = await onRequestFreshGPS();
+      if (fresh) {
+        targetLat = fresh.lat;
+        targetLng = fresh.lng;
+      }
+    }
+
     if (mapInstanceRef.current) {
-      mapInstanceRef.current.flyTo([userLatitude, userLongitude], 18, { duration: 1.2 });
+      mapInstanceRef.current.invalidateSize();
+      mapInstanceRef.current.flyTo([targetLat, targetLng], 18, { duration: 1.2 });
       if (userMarkerRef.current) {
+        userMarkerRef.current.setLatLng([targetLat, targetLng]);
         setTimeout(() => {
           userMarkerRef.current?.openPopup();
         }, 1200);
@@ -504,39 +547,41 @@ export const LocationMap: React.FC<LocationMapProps> = ({
           <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
             {isLiveTracking ? '🛰️ Live GPS Location' : 'Detected Location Name'}
           </div>
-          <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#ffffff' }}>
+          <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#f8fafc' }}>
             {currentLocationName}
           </div>
         </div>
       </div>
 
-      {/* Spotlight Notice if Area is Circled */}
+      {/* Active Target Highlight Badge (if asking "Where is my charger?") */}
       {highlightedLocation && (
         <div
           style={{
             position: 'absolute',
-            top: '72px',
-            left: '12px',
+            top: '12px',
+            left: '50%',
+            transform: 'translateX(-50%)',
             zIndex: 1000,
             background: 'rgba(16, 185, 129, 0.95)',
             color: '#ffffff',
-            borderRadius: '8px',
-            padding: '6px 12px',
-            fontSize: '0.78rem',
+            borderRadius: '20px',
+            padding: '6px 16px',
+            fontSize: '0.8rem',
             fontWeight: 700,
             display: 'flex',
             alignItems: 'center',
-            gap: '6px',
-            boxShadow: '0 4px 16px rgba(16, 185, 129, 0.5)',
-            animation: 'fadeIn 0.2s ease',
+            gap: '8px',
+            boxShadow: '0 4px 20px rgba(16, 185, 129, 0.6)',
+            animation: 'slideDown 0.3s ease',
           }}
         >
-          <Target size={14} />
-          <span>Circled Target: {highlightedLocation.label || 'Item'} @ {highlightedLocation.name}</span>
+          <Target size={15} />
+          <span>🎯 Spotlight on: {highlightedLocation.name}</span>
           {onClearHighlight && (
             <button
               onClick={onClearHighlight}
-              style={{ background: 'transparent', border: 'none', color: '#fff', marginLeft: '6px', cursor: 'pointer', fontWeight: 800 }}
+              style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', marginLeft: '6px', fontWeight: 900 }}
+              title="Clear Highlight"
             >
               ✕
             </button>

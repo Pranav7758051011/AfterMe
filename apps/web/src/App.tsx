@@ -33,16 +33,16 @@ export const App: React.FC = () => {
   // Live GPS Geolocation Hook
   const geo = useGeolocation(true);
 
-  // Sync real-time browser GPS when tracking is enabled
+  // Sync real-time browser GPS when coordinates arrive
   useEffect(() => {
-    if (geo.isTracking && geo.latitude !== null && geo.longitude !== null) {
+    if (geo.latitude !== null && geo.longitude !== null) {
       setUserLatitude(geo.latitude);
       setUserLongitude(geo.longitude);
       if (geo.accuracy !== null) setUserAccuracy(geo.accuracy);
       const name = geo.locationName || `GPS (${geo.latitude.toFixed(4)}, ${geo.longitude.toFixed(4)})`;
       setCurrentLocation(name);
     }
-  }, [geo.isTracking, geo.latitude, geo.longitude, geo.accuracy, geo.locationName]);
+  }, [geo.latitude, geo.longitude, geo.accuracy, geo.locationName]);
 
   // Load all data from Firebase Firestore
   const refreshData = useCallback(async () => {
@@ -55,7 +55,7 @@ export const App: React.FC = () => {
       ]);
 
       setMemories(mems);
-      if (!geo.isTracking) {
+      if (!geo.isTracking && geo.latitude === null) {
         setCurrentLocation(loc.current_location);
         setPreviousLocation(loc.previous_location);
         if (st.current_latitude) setUserLatitude(st.current_latitude);
@@ -66,7 +66,7 @@ export const App: React.FC = () => {
     } catch (err) {
       console.error('Error fetching Firestore data:', err);
     }
-  }, [geo.isTracking]);
+  }, [geo.isTracking, geo.latitude]);
 
   useEffect(() => {
     refreshData();
@@ -243,6 +243,7 @@ export const App: React.FC = () => {
         onToggleLiveTracking={geo.toggleTracking}
         onMarkRetrieved={(id) => handleMarkRetrieved(id)}
         onClearHighlight={() => setHighlightedLocation(null)}
+        onRequestFreshGPS={geo.requestFreshLocation}
         isLoading={isLoading}
       />
 

@@ -38,7 +38,7 @@ export function useGeolocation(autoSyncWithBackend = true) {
     locationName: null,
     timestamp: null,
     error: null,
-    isTracking: false,
+    isTracking: true,
     isSupported: typeof navigator !== 'undefined' && 'geolocation' in navigator,
   });
 
@@ -64,12 +64,13 @@ export function useGeolocation(autoSyncWithBackend = true) {
         const data = await res.json();
         const addr = data.address;
         if (addr) {
-          const building = addr.building || addr.amenity || addr.office;
-          const road = addr.road || addr.street;
-          const suburb = addr.suburb || addr.neighbourhood || addr.city || addr.town;
+          const building = addr.building || addr.amenity || addr.office || addr.house_name;
+          const road = addr.road || addr.street || addr.pedestrian;
+          const suburb = addr.suburb || addr.neighbourhood || addr.city || addr.town || addr.village;
 
           if (building && road) return `${building}, ${road}`;
           if (road && suburb) return `${road}, ${suburb}`;
+          if (suburb) return suburb;
           if (data.display_name) {
             const parts = data.display_name.split(',');
             return parts.slice(0, 2).join(', ').trim();
@@ -81,6 +82,38 @@ export function useGeolocation(autoSyncWithBackend = true) {
     }
 
     return `GPS Area (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
+  };
+
+  // Fallback IP-based Geolocation if browser GPS is blocked or unavailable
+  const fallbackIpLocation = async () => {
+    try {
+      const res = await fetch('https://ipwho.is/');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.latitude && data.longitude) {
+          const lat = data.latitude;
+          const lng = data.longitude;
+          const placeName = `${data.city || 'Your Area'}, ${data.region || data.country || 'Live Location'}`;
+
+          setState((prev) => ({
+            ...prev,
+            latitude: lat,
+            longitude: lng,
+            accuracy: 100,
+            locationName: placeName,
+            timestamp: Date.now(),
+            error: null,
+            isTracking: true,
+          }));
+
+          if (autoSyncWithBackend) {
+            api.sendGPSLocation(lat, lng, 100, placeName).catch(() => {});
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('IP location fallback notice:', err);
+    }
   };
 
   const syncCoordinatesToBackend = useCallback(async (lat: number, lng: number, acc?: number, placeName?: string) => {
@@ -100,9 +133,8 @@ export function useGeolocation(autoSyncWithBackend = true) {
       const { latitude, longitude, accuracy, speed, heading } = position.coords;
       let placeName = state.locationName;
 
-      // Geocode periodically or on first point
       const now = Date.now();
-      if (!placeName || now - lastGeocodeRef.current > 10000) {
+      if (!placeName || now - lastGeocodeRef.current > 8000) {
         lastGeocodeRef.current = now;
         placeName = await resolveLocationName(latitude, longitude);
       }
@@ -117,6 +149,7 @@ export function useGeolocation(autoSyncWithBackend = true) {
         locationName: placeName,
         timestamp: position.timestamp,
         error: null,
+        isTracking: true,
       }));
 
       if (autoSyncWithBackend) {
@@ -128,20 +161,63 @@ export function useGeolocation(autoSyncWithBackend = true) {
 
   const handleError = useCallback((error: GeolocationPositionError) => {
     let msg = 'Unable to retrieve location';
-    if (error.code === error.PERMISSION_DENIED) msg = 'Location permission denied by user';
-    else if (error.code === error.POSITION_UNAVAILABLE) msg = 'Location information is unavailable';
-    else if (error.code === error.TIMEOUT) msg = 'Location request timed out';
+    if (error.code === error.PERMISSION_DENIED) msg = 'Location permission denied by user. Using network positioning.';
+    else if (error.code === error.POSITION_UNAVAILABLE) msg = 'Location information is unavailable.';
+    else if (error.code === error.TIMEOUT) msg = 'Location request timed out. Retrying with network positioning.';
 
+    console.warn('Browser GPS notice:', msg);
     setState((prev) => ({
       ...prev,
       error: msg,
-      isTracking: false,
     }));
+
+    // If browser GPS fails or is denied, automatically fallback to IP location
+    fallbackIpLocation();
   }, []);
+
+  // Request fresh location on demand
+  const requestFreshLocation = useCallback(async (): Promise<{ lat: number; lng: number; name: string } | null> => {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        fallbackIpLocation();
+        resolve(null);
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          const name = await resolveLocationName(lat, lng);
+
+          handleSuccess(pos);
+          resolve({ lat, lng, name });
+        },
+        async () => {
+          // Low-accuracy retry
+          navigator.geolocation.getCurrentPosition(
+            async (pos) => {
+              const lat = pos.coords.latitude;
+              const lng = pos.coords.longitude;
+              const name = await resolveLocationName(lat, lng);
+              handleSuccess(pos);
+              resolve({ lat, lng, name });
+            },
+            async () => {
+              await fallbackIpLocation();
+              resolve(null);
+            },
+            { enableHighAccuracy: false, timeout: 6000, maximumAge: 30000 }
+          );
+        },
+        { enableHighAccuracy: true, timeout: 7000, maximumAge: 0 }
+      );
+    });
+  }, [handleSuccess]);
 
   const startTracking = useCallback(() => {
     if (!state.isSupported) {
-      setState((prev) => ({ ...prev, error: 'Geolocation is not supported in this browser' }));
+      fallbackIpLocation();
       return;
     }
 
@@ -149,18 +225,14 @@ export function useGeolocation(autoSyncWithBackend = true) {
 
     setState((prev) => ({ ...prev, isTracking: true, error: null }));
 
-    navigator.geolocation.getCurrentPosition(handleSuccess, handleError, {
-      enableHighAccuracy: true,
-      timeout: 10000,
-      maximumAge: 0,
-    });
+    requestFreshLocation();
 
     watchIdRef.current = navigator.geolocation.watchPosition(handleSuccess, handleError, {
       enableHighAccuracy: true,
       timeout: 10000,
       maximumAge: 1500,
     });
-  }, [state.isSupported, handleSuccess, handleError]);
+  }, [state.isSupported, handleSuccess, handleError, requestFreshLocation]);
 
   const stopTracking = useCallback(() => {
     if (watchIdRef.current !== null) {
@@ -170,7 +242,10 @@ export function useGeolocation(autoSyncWithBackend = true) {
     setState((prev) => ({ ...prev, isTracking: false }));
   }, []);
 
+  // Auto-start tracking and detect live location on initial mount
   useEffect(() => {
+    startTracking();
+
     return () => {
       if (watchIdRef.current !== null) {
         navigator.geolocation.clearWatch(watchIdRef.current);
@@ -182,6 +257,7 @@ export function useGeolocation(autoSyncWithBackend = true) {
     ...state,
     startTracking,
     stopTracking,
+    requestFreshLocation,
     toggleTracking: () => (state.isTracking ? stopTracking() : startTracking()),
   };
 }
