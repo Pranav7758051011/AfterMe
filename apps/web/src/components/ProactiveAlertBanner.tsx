@@ -1,6 +1,5 @@
 import React from 'react';
-import { AlertTriangle, CheckCircle2, MapPin, X, BellRing } from 'lucide-react';
-import confetti from 'canvas-confetti';
+import { AlertTriangle, X, CheckCircle2, Navigation } from 'lucide-react';
 import { ProactiveAlert } from '../types';
 
 interface ProactiveAlertBannerProps {
@@ -14,64 +13,65 @@ export const ProactiveAlertBanner: React.FC<ProactiveAlertBannerProps> = ({
   onDismiss,
   onMarkRetrieved,
 }) => {
-  if (!alerts || alerts.length === 0) return null;
-
-  const handleRetrieved = (memoryId: string, alertId: string) => {
-    // Fire celebratory confetti!
-    confetti({
-      particleCount: 80,
-      spread: 70,
-      origin: { y: 0.6 }
-    });
-    onMarkRetrieved(memoryId, alertId);
-  };
+  const visibleAlerts = alerts.filter(a => !a.is_dismissed).slice(0, 3);
+  if (visibleAlerts.length === 0) return null;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '28px' }}>
-      {alerts.map(alert => (
-        <div key={alert.id} className="proactive-alert-box">
-          <div className="alert-content">
-            <div className="alert-icon-wrap">
-              <BellRing size={24} className="animate-bounce" />
+    <div className="alert-toast-container">
+      {visibleAlerts.map(alert => {
+        const severity = alert.severity === 'critical' ? 'critical' : alert.severity === 'high' ? 'high' : 'medium';
+        return (
+          <div key={alert.id} className={`alert-toast ${severity}`}>
+            <div
+              className="alert-toast-icon"
+              style={
+                severity === 'critical'
+                  ? { background: 'var(--danger-subtle)', color: 'var(--danger-text)' }
+                  : { background: 'var(--warning-subtle)', color: 'var(--warning-text)' }
+              }
+            >
+              <AlertTriangle size={18} />
             </div>
-            <div>
-              <div className="alert-title">
-                <span>{alert.title}</span>
-                <span className={`badge badge-${alert.severity || 'high'}`}>
-                  {alert.severity} Risk
-                </span>
-              </div>
-              <p className="alert-message">{alert.message}</p>
-              {alert.memory?.location && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px', fontSize: '0.8rem', color: '#fecaca' }}>
-                  <MapPin size={12} />
-                  <span>Left at: <strong>{alert.memory.location}</strong></span>
+
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div className="alert-toast-title">{alert.title}</div>
+              <div className="alert-toast-body">{alert.message}</div>
+              {alert.distance_meters !== undefined && (
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginBottom: 10, fontFamily: 'var(--font-mono)' }}>
+                  {alert.distance_meters}m away from item
                 </div>
               )}
+              <div className="alert-toast-actions">
+                <button
+                  type="button"
+                  className="btn btn-success btn-xs"
+                  onClick={() => onMarkRetrieved(alert.memory_id, alert.id)}
+                >
+                  <CheckCircle2 size={11} />
+                  Retrieved
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-xs"
+                  onClick={() => onDismiss(alert.id)}
+                  style={{ color: 'var(--text-tertiary)' }}
+                >
+                  Dismiss
+                </button>
+              </div>
             </div>
-          </div>
-
-          <div className="alert-actions">
-            <button
-              className="btn btn-sm"
-              style={{ background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', fontWeight: 700 }}
-              onClick={() => handleRetrieved(alert.memory_id, alert.id)}
-            >
-              <CheckCircle2 size={14} />
-              <span>Retrieved</span>
-            </button>
 
             <button
-              className="btn btn-secondary btn-sm"
+              type="button"
+              className="btn btn-ghost btn-icon-sm"
               onClick={() => onDismiss(alert.id)}
-              title="Dismiss warning"
+              style={{ flexShrink: 0, color: 'var(--text-tertiary)' }}
             >
               <X size={14} />
-              <span>Dismiss</span>
             </button>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 };

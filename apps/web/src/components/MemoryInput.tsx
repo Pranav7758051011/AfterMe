@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { 
-  Sparkles, Mic, MicOff, Send, CheckCircle2, ShieldAlert, 
-  Camera, Video, Image as ImageIcon, X, Car, Film, AlertCircle 
+import {
+  Mic, MicOff, Send, CheckCircle2,
+  Camera, X, Car, Film, AlertCircle, Sparkles
 } from 'lucide-react';
 import { useSpeechToText } from '../hooks/useSpeechToText';
 import { MediaCaptureModal } from './MediaCaptureModal';
@@ -15,14 +15,20 @@ interface MemoryInputProps {
 }
 
 const EXAMPLE_PROMPTS = [
-  'I left my black laptop charger in the conference room.',
-  'My passport is in the blue folder in the top desk drawer.',
-  'Parked my car on Floor 2, Bay B-14.',
-  'I need to send the project report to Professor Davis by Friday.',
-  'I left my AirPods on the 2nd floor library study table.',
+  'I left my laptop charger in the conference room',
+  'Passport is in the blue folder, top desk drawer',
+  'Parked on Floor 2, Bay B-14',
+  'Send project report to Prof. Davis by Friday',
+  'AirPods on the 2nd floor library study table',
 ];
 
-export const MemoryInput: React.FC<MemoryInputProps> = ({ onSave, currentLocation, userLatitude, userLongitude, prefilledText }) => {
+export const MemoryInput: React.FC<MemoryInputProps> = ({
+  onSave,
+  currentLocation,
+  userLatitude,
+  userLongitude,
+  prefilledText,
+}) => {
   const [text, setText] = useState(prefilledText || '');
   const [attachedMedia, setAttachedMedia] = useState<{ type: 'image' | 'video'; base64: string; mimeType: string } | null>(null);
   const [isMediaModalOpen, setIsMediaModalOpen] = useState(false);
@@ -33,19 +39,15 @@ export const MemoryInput: React.FC<MemoryInputProps> = ({ onSave, currentLocatio
   useEffect(() => {
     if (prefilledText !== undefined && prefilledText !== null) {
       setText(prefilledText);
-      if (inputRef.current) {
-        inputRef.current.focus();
-      }
+      if (inputRef.current) inputRef.current.focus();
     }
   }, [prefilledText]);
 
-  const { isListening, isSupported, errorMessage: micError, toggleListening } = useSpeechToText((transcript) => {
-    setText((prev) => (prev ? `${prev} ${transcript}` : transcript));
+  const { isListening, isSupported, errorMessage: micError, toggleListening } = useSpeechToText(transcript => {
+    setText(prev => prev ? `${prev} ${transcript}` : transcript);
   });
 
-  const handleQuickParkCar = () => {
-    setText(`Parked my vehicle at ${currentLocation}`);
-  };
+  const handleQuickParkCar = () => setText(`Parked my vehicle at ${currentLocation}`);
 
   const handleMediaCaptured = (media: { type: 'image' | 'video'; base64: string; mimeType: string }) => {
     setAttachedMedia(media);
@@ -71,8 +73,6 @@ export const MemoryInput: React.FC<MemoryInputProps> = ({ onSave, currentLocatio
       setLastExtraction(res.extraction);
       setText('');
       setAttachedMedia(null);
-
-      // Auto-hide feedback after 6s
       setTimeout(() => setLastExtraction(null), 6000);
     } catch (err) {
       console.error('Error saving memory:', err);
@@ -81,177 +81,135 @@ export const MemoryInput: React.FC<MemoryInputProps> = ({ onSave, currentLocatio
     }
   };
 
-  const handleChipClick = (promptText: string) => {
-    setText(promptText);
-  };
-
   return (
     <div className="capture-card" id="memory-input-section">
+      {/* Label Row */}
       <div className="capture-label">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Sparkles size={18} color="var(--accent-primary)" />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Sparkles size={13} color="var(--accent)" />
           <span>What should I remember?</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <button
             type="button"
-            className="btn btn-secondary btn-sm"
+            className="btn btn-ghost btn-xs"
             onClick={handleQuickParkCar}
-            title="1-Click Car Parking Memory"
-            style={{ padding: '4px 10px', fontSize: '0.75rem', borderColor: 'rgba(56, 189, 248, 0.3)', color: '#38bdf8' }}
+            title="Quick: Log parked car"
+            style={{ color: 'var(--info-text)', borderColor: 'var(--info-border)', background: 'var(--info-subtle)' }}
           >
-            <Car size={13} />
-            <span>Parked Car Here</span>
+            <Car size={11} />
+            Parked Here
           </button>
-          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-            Gemini Multimodal AI
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.62rem', color: 'var(--text-tertiary)', letterSpacing: '0.06em' }}>
+            Gemini AI
           </span>
         </div>
       </div>
 
-      {/* Mic Permission / Error Banner */}
+      {/* Mic Error */}
       {micError && (
-        <div
-          style={{
-            padding: '8px 12px',
-            background: 'rgba(245, 158, 11, 0.15)',
-            border: '1px solid rgba(245, 158, 11, 0.4)',
-            borderRadius: '8px',
-            color: '#fbbf24',
-            fontSize: '0.78rem',
-            marginBottom: '10px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-          }}
-        >
-          <AlertCircle size={14} />
+        <div style={{
+          padding: '8px 12px',
+          background: 'var(--warning-subtle)',
+          border: '1px solid var(--warning-border)',
+          borderRadius: 'var(--r-md)',
+          color: 'var(--warning-text)',
+          fontSize: '0.78rem',
+          marginBottom: 'var(--sp-3)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+        }}>
+          <AlertCircle size={13} />
           <span>{micError}</span>
         </div>
       )}
 
-      {/* Attached Media Thumbnail Preview (Photo or Video) */}
+      {/* Media Preview */}
       {attachedMedia && (
-        <div style={{ position: 'relative', display: 'inline-block', marginBottom: '10px' }}>
+        <div style={{ position: 'relative', display: 'inline-block', marginBottom: 'var(--sp-3)' }}>
           {attachedMedia.type === 'video' ? (
-            <div
-              style={{
-                width: '120px',
-                height: '80px',
-                borderRadius: '10px',
-                border: '2px solid var(--accent-primary)',
-                background: '#0f172a',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                position: 'relative',
-                overflow: 'hidden',
-              }}
-            >
+            <div style={{ width: 100, height: 72, borderRadius: 'var(--r-md)', border: '1px solid var(--accent-border)', background: 'var(--bg-base)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', position: 'relative' }}>
               <video src={attachedMedia.base64} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              <Film size={20} color="#fff" style={{ position: 'absolute' }} />
+              <Film size={18} color="#fff" style={{ position: 'absolute' }} />
             </div>
           ) : (
-            <img
-              src={attachedMedia.base64}
-              alt="Memory attachment"
-              style={{ width: '90px', height: '90px', objectFit: 'cover', borderRadius: '10px', border: '2px solid var(--accent-primary)' }}
-            />
+            <img src={attachedMedia.base64} alt="Attachment" style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 'var(--r-md)', border: '1px solid var(--accent-border)', display: 'block' }} />
           )}
-
           <button
             type="button"
             onClick={() => setAttachedMedia(null)}
-            title="Remove attachment"
-            style={{
-              position: 'absolute',
-              top: '-6px',
-              right: '-6px',
-              background: '#ef4444',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '50%',
-              width: '22px',
-              height: '22px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: '0 2px 6px rgba(0,0,0,0.5)',
-            }}
+            style={{ position: 'absolute', top: -6, right: -6, background: 'var(--danger)', color: '#fff', border: 'none', borderRadius: '50%', width: 20, height: 20, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
-            <X size={13} />
+            <X size={11} />
           </button>
         </div>
       )}
 
+      {/* Input Row */}
       <form onSubmit={handleSubmit}>
         <div className="capture-input-wrap">
           <input
             ref={inputRef}
             type="text"
             className="capture-input"
-            placeholder='e.g. "I left my black laptop charger in the conference room..."'
+            placeholder='e.g. "I left my charger in the conference room…"'
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={e => setText(e.target.value)}
             disabled={isSubmitting}
             autoFocus
           />
 
           <div className="capture-btn-group">
-            {/* Live Camera / Video Capture Modal Trigger */}
+            {/* Camera */}
             <button
               type="button"
-              className="btn btn-secondary btn-icon btn-sm"
+              className="mic-btn"
               onClick={() => setIsMediaModalOpen(true)}
-              title="Open Live Camera (Snap Photo, Record Video, or Upload)"
-              style={{
-                borderColor: attachedMedia ? '#10b981' : undefined,
-                color: attachedMedia ? '#34d399' : undefined,
-              }}
+              title="Attach photo or video"
+              style={attachedMedia ? { color: 'var(--success-text)', background: 'var(--success-subtle)' } : {}}
             >
-              <Camera size={16} />
+              <Camera size={15} />
             </button>
 
-            {/* Microphone Speech-To-Text Button */}
+            {/* Mic */}
             {isSupported && (
               <button
                 type="button"
-                className={`mic-btn ${isListening ? 'recording mic-unmuted-glow' : 'mic-muted-glow'}`}
+                className={`mic-btn${isListening ? ' recording' : ''}`}
                 onClick={toggleListening}
-                title={isListening ? '🎙️ Mic Active (Unmuted) — Click to Mute / Finish' : '🔇 Mic Muted — Click to Unmute & Speak'}
-                style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: isListening ? '0 10px' : undefined }}
+                title={isListening ? 'Stop recording' : 'Start voice input'}
               >
                 {isListening ? (
-                  <>
-                    <Mic size={16} color="#ffffff" />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <Mic size={15} color="#fff" />
                     <div className="soundwave-visualizer">
                       <span className="soundwave-bar" />
                       <span className="soundwave-bar" />
                       <span className="soundwave-bar" />
                     </div>
-                  </>
+                  </div>
                 ) : (
-                  <MicOff size={16} color="#f87171" />
+                  <MicOff size={15} />
                 )}
               </button>
             )}
 
+            {/* Submit */}
             <button
               type="submit"
               className="btn btn-primary btn-sm"
               disabled={isSubmitting || (!text.trim() && !attachedMedia)}
-              style={{ padding: '8px 16px' }}
             >
               {isSubmitting ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <div className="location-pulse" style={{ width: '6px', height: '6px' }} />
-                  <span>Processing...</span>
-                </div>
+                <>
+                  <div className="live-dot" style={{ width: 6, height: 6 }} />
+                  <span>Saving…</span>
+                </>
               ) : (
                 <>
                   <span>Remember</span>
-                  <Send size={14} />
+                  <Send size={13} />
                 </>
               )}
             </button>
@@ -259,81 +217,68 @@ export const MemoryInput: React.FC<MemoryInputProps> = ({ onSave, currentLocatio
         </div>
       </form>
 
-      {/* Active Listening Soundwave Indicator */}
+      {/* Listening Indicator */}
       {isListening && (
-        <div
-          style={{
-            marginTop: '8px',
-            padding: '6px 12px',
-            background: 'rgba(239, 68, 68, 0.15)',
-            border: '1px solid rgba(239, 68, 68, 0.4)',
-            borderRadius: '8px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            color: '#f87171',
-            fontSize: '0.8rem',
-            fontWeight: 600,
-            animation: 'fadeIn 0.2s ease',
-          }}
-        >
-          <div className="location-pulse" style={{ width: '8px', height: '8px', background: '#ef4444' }} />
-          <span>Listening to your voice... speak now (e.g. "I left my passport in the blue folder")</span>
+        <div style={{
+          marginTop: 'var(--sp-3)',
+          padding: '6px 12px',
+          background: 'var(--danger-subtle)',
+          border: '1px solid var(--danger-border)',
+          borderRadius: 'var(--r-md)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          color: 'var(--danger-text)',
+          fontSize: '0.8rem',
+          fontWeight: 500,
+          animation: 'fadeIn 0.2s ease',
+        }}>
+          <div className="live-dot" style={{ background: 'var(--danger-text)' }} />
+          Listening… speak now
         </div>
       )}
 
-      {/* Example Prompt Chips */}
+      {/* Example Chips */}
       <div className="capture-examples">
-        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Try:</span>
-        {EXAMPLE_PROMPTS.map((prompt, idx) => (
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.68rem', color: 'var(--text-tertiary)', letterSpacing: '0.04em' }}>
+          TRY
+        </span>
+        {EXAMPLE_PROMPTS.slice(0, 3).map((prompt, idx) => (
           <button
             key={idx}
             type="button"
             className="example-chip"
-            onClick={() => handleChipClick(prompt)}
+            onClick={() => setText(prompt)}
           >
-            "{prompt.length > 38 ? prompt.slice(0, 38) + '...' : prompt}"
+            {prompt.length > 32 ? prompt.slice(0, 32) + '…' : prompt}
           </button>
         ))}
       </div>
 
-      {/* Extraction Result Feedback Drawer */}
+      {/* Extraction Feedback */}
       {lastExtraction && (
-        <div
-          style={{
-            marginTop: '16px',
-            padding: '12px 16px',
-            background: 'rgba(99, 102, 241, 0.1)',
-            border: '1px solid rgba(99, 102, 241, 0.3)',
-            borderRadius: '12px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            fontSize: '0.85rem',
-            animation: 'fadeIn 0.2s ease',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <CheckCircle2 size={18} color="#34d399" />
-            <div>
-              <strong style={{ color: '#e0e7ff' }}>Memory Extracted:</strong>{' '}
-              <span>{lastExtraction.summary || lastExtraction.object}</span>
+        <div className="extraction-feedback">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <CheckCircle2 size={16} color="var(--success-text)" />
+            <div style={{ fontSize: '0.84rem' }}>
+              <strong style={{ color: 'var(--text-primary)' }}>Extracted: </strong>
+              <span style={{ color: 'var(--text-secondary)' }}>
+                {lastExtraction.summary || lastExtraction.object}
+              </span>
               {lastExtraction.location && (
-                <span style={{ color: 'var(--text-secondary)', marginLeft: '6px' }}>
-                  &bull; 📍 {lastExtraction.location}
+                <span style={{ color: 'var(--text-tertiary)', marginLeft: 6 }}>
+                  · 📍 {lastExtraction.location}
                 </span>
               )}
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span className={`badge badge-${lastExtraction.risk_level || 'medium'}`}>
-              {lastExtraction.risk_level} Risk
-            </span>
-          </div>
+          <span className={`badge badge-${lastExtraction.risk_level || 'medium'}`}>
+            {lastExtraction.risk_level}
+          </span>
         </div>
       )}
 
-      {/* Live Camera Photo & Video Capture Modal */}
+      {/* Media Capture Modal */}
       <MediaCaptureModal
         isOpen={isMediaModalOpen}
         onClose={() => setIsMediaModalOpen(false)}

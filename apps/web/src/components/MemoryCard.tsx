@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { 
-  MapPin, Clock, Calendar, Check, RotateCcw, Trash2, 
-  AlertTriangle, FileText, CheckCircle2, User, Lightbulb, Package, Target, Image as ImageIcon, X, Car, Film, Play, Share2
+import {
+  MapPin, Clock, Calendar, Check, RotateCcw, Trash2,
+  CheckCircle2, User, Package, FileText, CheckSquare, Lightbulb,
+  Brain, Image as ImageIcon, X, Film, Play, Share2, Target, Navigation
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { Memory } from '../types';
@@ -15,8 +16,27 @@ interface MemoryCardProps {
   onShare?: (memory: Memory) => void;
 }
 
-export const MemoryCard: React.FC<MemoryCardProps> = ({ memory, onStatusChange, onDelete, onLocateOnMap, onShare }) => {
+const TYPE_ICON: Record<string, { emoji: string; color: string }> = {
+  belonging: { emoji: '📦', color: 'var(--accent)' },
+  document:  { emoji: '📄', color: 'var(--info)' },
+  task:      { emoji: '✅', color: 'var(--success)' },
+  event:     { emoji: '📅', color: 'var(--warning)' },
+  person:    { emoji: '👤', color: '#a78bfa' },
+  idea:      { emoji: '💡', color: '#f59e0b' },
+  location:  { emoji: '📍', color: 'var(--danger)' },
+  other:     { emoji: '🧠', color: 'var(--text-tertiary)' },
+};
+
+export const MemoryCard: React.FC<MemoryCardProps> = ({
+  memory,
+  onStatusChange,
+  onDelete,
+  onLocateOnMap,
+  onShare,
+}) => {
   const [showImageModal, setShowImageModal] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+
   const isRetrieved = memory.status === 'retrieved';
   const isCompleted = memory.status === 'completed';
   const isForgotten = memory.status === 'potentially_forgotten';
@@ -28,42 +48,17 @@ export const MemoryCard: React.FC<MemoryCardProps> = ({ memory, onStatusChange, 
       memory.image_url.endsWith('.webm'))
   );
 
-  const getTypeIcon = () => {
-    if (memory.object?.toLowerCase().includes('car') || memory.location?.toLowerCase().includes('park')) {
-      return '🚗';
-    }
-    switch (memory.memory_type) {
-      case 'belonging':
-        return '🔌';
-      case 'document':
-        return '📁';
-      case 'task':
-        return '📝';
-      case 'event':
-        return '📅';
-      case 'person':
-        return '👤';
-      case 'idea':
-        return '💡';
-      default:
-        return '🧠';
-    }
-  };
+  // Car special case
+  const isCar = memory.object?.toLowerCase().includes('car') || memory.location?.toLowerCase().includes('park');
+  const typeData = isCar
+    ? { emoji: '🚗', color: 'var(--info)' }
+    : TYPE_ICON[memory.memory_type] || TYPE_ICON.other;
 
-  const getDisplayName = () => {
-    if (memory.object) return memory.object;
-    if (memory.task) return memory.task;
-    if (memory.event) return memory.event;
-    return memory.original_text.slice(0, 45);
-  };
+  const displayName = memory.object || memory.task || memory.event || memory.original_text.slice(0, 50);
 
   const handleToggleRetrieved = () => {
     if (!isRetrieved) {
-      confetti({
-        particleCount: 50,
-        spread: 60,
-        origin: { y: 0.7 }
-      });
+      confetti({ particleCount: 45, spread: 55, origin: { y: 0.7 }, colors: ['#4F6EF7', '#34d399', '#818cf8'] });
       onStatusChange(memory.id, 'retrieved');
     } else {
       onStatusChange(memory.id, 'active');
@@ -72,11 +67,7 @@ export const MemoryCard: React.FC<MemoryCardProps> = ({ memory, onStatusChange, 
 
   const handleToggleTask = () => {
     if (!isCompleted) {
-      confetti({
-        particleCount: 50,
-        spread: 60,
-        origin: { y: 0.7 }
-      });
+      confetti({ particleCount: 45, spread: 55, origin: { y: 0.7 }, colors: ['#4F6EF7', '#34d399', '#818cf8'] });
       onStatusChange(memory.id, 'completed');
     } else {
       onStatusChange(memory.id, 'active');
@@ -85,333 +76,224 @@ export const MemoryCard: React.FC<MemoryCardProps> = ({ memory, onStatusChange, 
 
   const handleLocateClick = () => {
     if (!onLocateOnMap) return;
-
     let lat = memory.latitude;
     let lng = memory.longitude;
     const name = memory.location || 'Saved Location';
 
     if ((lat === null || lat === undefined) && memory.location) {
-      const match = KNOWN_PLACES.find((p) => memory.location?.toLowerCase().includes(p.name.toLowerCase()));
-      if (match) {
-        lat = match.lat;
-        lng = match.lng;
-      } else {
-        lat = 37.7749;
-        lng = -122.4194;
-      }
+      const match = KNOWN_PLACES.find(p => memory.location?.toLowerCase().includes(p.name.toLowerCase()));
+      lat = match ? match.lat : 37.7749;
+      lng = match ? match.lng : -122.4194;
     }
 
-    if (lat !== null && lat !== undefined && lng !== null && lng !== undefined) {
-      onLocateOnMap({
-        lat,
-        lng,
-        name,
-        label: memory.object || memory.task || memory.original_text,
-        memoryId: memory.id,
-      });
+    if (lat != null && lng != null) {
+      onLocateOnMap({ lat, lng, name, label: memory.object || memory.task || memory.original_text, memoryId: memory.id });
     }
   };
 
-  const formattedTime = new Date(memory.created_at).toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  const formattedTime = new Date(memory.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const formattedDate = new Date(memory.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' });
 
   return (
-    <div className={`memory-card ${memory.status}`}>
-      <div>
-        <div className="card-top">
-          <div className="item-title-wrap">
-            <div className="type-icon">{getTypeIcon()}</div>
-            <div>
-              <div className="item-name">{getDisplayName()}</div>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'capitalize' }}>
-                {memory.memory_type}
-              </span>
-            </div>
+    <>
+      <div
+        className={`memory-card ${memory.status}`}
+        style={{ cursor: 'default' }}
+      >
+        {/* Card Header */}
+        <div className="card-header">
+          <div className="card-type-icon" style={{ borderColor: `${typeData.color}30` }}>
+            <span role="img" aria-label={memory.memory_type}>{typeData.emoji}</span>
           </div>
 
-          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-            <span className={`badge badge-${memory.risk_level}`}>
-              {memory.risk_level}
-            </span>
+          <div className="card-title-area">
+            <div className="card-title" title={displayName}>{displayName}</div>
+            <div className="card-type-label">{memory.memory_type}</div>
+          </div>
+
+          <div className="card-badges">
             {isForgotten && (
-              <span className="badge badge-critical" title="Potentially forgotten item">
-                ⚠️ Left Behind
+              <span className="badge badge-high" style={{ fontSize: '0.68rem' }}>
+                ⚠ At Risk
               </span>
             )}
-            {isRetrieved && (
-              <span className="badge" style={{ background: 'rgba(16, 185, 129, 0.2)', color: '#34d399' }}>
-                ✓ Retrieved
+            {!isForgotten && (
+              <span className={`badge badge-${memory.risk_level}`}>
+                {memory.risk_level}
               </span>
             )}
-            {isCompleted && (
-              <span className="badge" style={{ background: 'rgba(16, 185, 129, 0.2)', color: '#34d399' }}>
-                ✓ Done
+            {(isRetrieved || isCompleted) && (
+              <span className="badge badge-success">
+                ✓ {isRetrieved ? 'Retrieved' : 'Done'}
               </span>
             )}
           </div>
         </div>
 
-        {/* Original Natural Language Quote */}
-        <p className="card-original-text">
-          "{memory.original_text}"
-        </p>
-
-        {/* Photo or Video Attachment Thumbnail */}
-        {memory.image_url && (
-          <div style={{ marginBottom: '10px' }}>
-            <div
+        {/* Quote Body */}
+        <div className="card-body">
+          {memory.original_text.length > 120 && !isExpanded
+            ? `${memory.original_text.slice(0, 120)}…`
+            : memory.original_text}
+          {memory.original_text.length > 120 && (
+            <button
+              type="button"
+              onClick={() => setIsExpanded(!isExpanded)}
               style={{
-                position: 'relative',
-                display: 'inline-block',
+                background: 'none',
+                border: 'none',
+                color: 'var(--accent)',
+                fontSize: '0.78rem',
                 cursor: 'pointer',
-                borderRadius: '8px',
-                overflow: 'hidden',
-                border: '1px solid rgba(255,255,255,0.15)',
-                width: '100%',
-                maxHeight: '140px',
-                background: '#090d16',
+                marginLeft: 4,
+                fontFamily: 'var(--font-ui)',
               }}
-              onClick={() => setShowImageModal(true)}
-              title={isVideo ? 'Click to play video memory' : 'Click to view full photo'}
             >
-              {isVideo ? (
-                <div style={{ position: 'relative', width: '100%', height: '120px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <video src={memory.image_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  <div
-                    style={{
-                      position: 'absolute',
-                      background: 'rgba(0,0,0,0.6)',
-                      borderRadius: '50%',
-                      width: '36px',
-                      height: '36px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <Play size={18} color="#fff" />
-                  </div>
-                </div>
-              ) : (
-                <img
-                  src={memory.image_url}
-                  alt="Memory attachment"
-                  style={{ width: '100%', maxHeight: '120px', objectFit: 'cover', display: 'block' }}
-                />
-              )}
+              {isExpanded ? 'Less' : 'More'}
+            </button>
+          )}
+        </div>
 
-              <div
-                style={{
-                  position: 'absolute',
-                  bottom: '4px',
-                  right: '4px',
-                  background: 'rgba(0,0,0,0.75)',
-                  color: '#fff',
-                  borderRadius: '4px',
-                  padding: '2px 6px',
-                  fontSize: '0.68rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '3px',
-                }}
-              >
-                {isVideo ? <Film size={11} /> : <ImageIcon size={11} />}
-                <span>{isVideo ? 'Video' : 'Photo'}</span>
+        {/* Media Thumbnail */}
+        {memory.image_url && (
+          <div className="card-image-thumb" onClick={() => setShowImageModal(true)}>
+            {isVideo ? (
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', height: 130 }}>
+                <video src={memory.image_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <div style={{ position: 'absolute', background: 'rgba(0,0,0,0.55)', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Play size={16} color="#fff" />
+                </div>
               </div>
+            ) : (
+              <img src={memory.image_url} alt="Memory attachment" />
+            )}
+            <div className="card-image-thumb-label">
+              {isVideo ? <Film size={11} /> : <ImageIcon size={11} />}
+              <span>{isVideo ? 'Video' : 'Photo'}</span>
             </div>
           </div>
         )}
 
-        {/* Metadata Details */}
+        {/* Metadata */}
         <div className="card-meta">
           {memory.location && (
-            <button
-              type="button"
-              className="meta-item"
-              onClick={handleLocateClick}
-              title="Click to circle and highlight on map"
-              style={{
-                background: 'rgba(99, 102, 241, 0.12)',
-                border: '1px solid rgba(99, 102, 241, 0.3)',
-                padding: '3px 8px',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                color: '#c7d2fe',
-                fontWeight: 600,
-              }}
-            >
-              <Target size={13} color="var(--accent-primary)" />
-              <span>📍 {memory.location} (Circle Area)</span>
+            <button type="button" className="card-meta-item" onClick={handleLocateClick} title="Highlight on map">
+              <MapPin size={11} />
+              <span>{memory.location}</span>
             </button>
           )}
-
           {memory.person && (
-            <div className="meta-item">
-              <User size={13} color="var(--accent-cyan)" />
+            <div className="card-meta-item" style={{ cursor: 'default' }}>
+              <User size={11} />
               <span>{memory.person}</span>
             </div>
           )}
-
           {memory.deadline && (
-            <div className="meta-item" style={{ background: 'rgba(245, 158, 11, 0.15)', borderColor: 'rgba(245, 158, 11, 0.4)' }}>
-              <Clock size={13} color="var(--accent-amber)" />
-              <span style={{ color: '#fbbf24', fontWeight: 700 }}>⏰ Due: {memory.deadline}</span>
+            <div className="card-meta-item deadline">
+              <Clock size={11} />
+              <span>Due: {memory.deadline}</span>
             </div>
           )}
-
           {memory.date && (
-            <div className="meta-item">
-              <Calendar size={13} color="var(--accent-rose)" />
-              <span>{memory.date} {memory.time ? `at ${memory.time}` : ''}</span>
+            <div className="card-meta-item" style={{ cursor: 'default' }}>
+              <Calendar size={11} />
+              <span>{memory.date}{memory.time ? ` at ${memory.time}` : ''}</span>
             </div>
           )}
+          <div className="card-meta-item" style={{ marginLeft: 'auto', cursor: 'default', borderColor: 'transparent', background: 'transparent' }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem' }}>
+              {formattedDate} · {formattedTime}
+            </span>
+          </div>
+        </div>
 
-          <div className="meta-item" style={{ marginLeft: 'auto', color: 'var(--text-muted)' }}>
-            <span>{formattedTime}</span>
+        {/* Actions */}
+        <div className="card-actions">
+          {memory.memory_type === 'belonging' && (
+            <button
+              type="button"
+              className={`btn btn-sm ${isRetrieved ? 'btn-secondary' : 'btn-success'}`}
+              onClick={handleToggleRetrieved}
+            >
+              {isRetrieved ? <><RotateCcw size={12} /> Mark Active</> : <><CheckCircle2 size={12} /> Retrieved</>}
+            </button>
+          )}
+
+          {memory.memory_type === 'task' && (
+            <button
+              type="button"
+              className={`btn btn-sm ${isCompleted ? 'btn-secondary' : 'btn-success'}`}
+              onClick={handleToggleTask}
+            >
+              {isCompleted ? <><RotateCcw size={12} /> Reopen</> : <><Check size={12} /> Complete</>}
+            </button>
+          )}
+
+          <div className="card-actions-right">
+            {memory.location && onLocateOnMap && (
+              <button
+                type="button"
+                className="btn btn-ghost btn-icon-sm"
+                onClick={handleLocateClick}
+                title="Locate on map"
+              >
+                <Navigation size={13} />
+              </button>
+            )}
+
+            {onShare && (
+              <button
+                type="button"
+                className="btn btn-ghost btn-icon-sm"
+                onClick={() => onShare(memory)}
+                title="Share memory"
+              >
+                <Share2 size={13} />
+              </button>
+            )}
+
+            <button
+              type="button"
+              className="btn btn-ghost btn-icon-sm"
+              onClick={() => onDelete(memory.id)}
+              title="Delete memory"
+              style={{ color: 'var(--text-tertiary)' }}
+            >
+              <Trash2 size={13} />
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Card Actions */}
-      <div className="card-actions">
-        {memory.memory_type === 'belonging' && (
-          <button
-            className={`btn btn-sm ${isRetrieved ? 'btn-secondary' : 'btn-primary'}`}
-            onClick={handleToggleRetrieved}
-          >
-            {isRetrieved ? (
-              <>
-                <RotateCcw size={13} />
-                <span>Mark Active</span>
-              </>
-            ) : (
-              <>
-                <CheckCircle2 size={13} />
-                <span>Mark Retrieved</span>
-              </>
-            )}
-          </button>
-        )}
-
-        {memory.memory_type === 'task' && (
-          <button
-            className={`btn btn-sm ${isCompleted ? 'btn-secondary' : 'btn-primary'}`}
-            onClick={handleToggleTask}
-          >
-            {isCompleted ? (
-              <>
-                <RotateCcw size={13} />
-                <span>Reopen Task</span>
-              </>
-            ) : (
-              <>
-                <Check size={13} />
-                <span>Complete Task</span>
-              </>
-            )}
-          </button>
-        )}
-
-        {memory.location && (
-          <button
-            className="btn btn-secondary btn-sm"
-            onClick={handleLocateClick}
-            title="Circle location on map"
-            style={{ padding: '6px 10px', fontSize: '0.78rem' }}
-          >
-            <Target size={13} color="#10b981" />
-            <span>Circle Area</span>
-          </button>
-        )}
-
-        {onShare && (
-          <button
-            className="btn btn-secondary btn-sm"
-            onClick={() => onShare(memory)}
-            title="Share & Handover Item with QR Code"
-            style={{ padding: '6px 10px', fontSize: '0.78rem', color: '#818cf8', borderColor: 'rgba(99, 102, 241, 0.4)' }}
-          >
-            <Share2 size={13} color="#818cf8" />
-            <span>Share</span>
-          </button>
-        )}
-
-        <button
-          className="btn btn-secondary btn-sm"
-          style={{ color: 'var(--text-muted)' }}
-          onClick={() => onDelete(memory.id)}
-          title="Delete memory"
-        >
-          <Trash2 size={13} />
-        </button>
-      </div>
-
-      {/* Full Photo / Video Modal Preview */}
+      {/* Full Image/Video Modal */}
       {showImageModal && memory.image_url && (
-        <div
-          className="ask-drawer-overlay"
-          onClick={() => setShowImageModal(false)}
-          style={{ zIndex: 2000 }}
-        >
+        <div className="modal-overlay" onClick={() => setShowImageModal(false)} style={{ zIndex: 4000 }}>
           <div
-            style={{
-              position: 'relative',
-              maxWidth: '90vw',
-              maxHeight: '90vh',
-              margin: 'auto',
-              background: '#0f172a',
-              borderRadius: '16px',
-              padding: '16px',
-              border: '1px solid rgba(255,255,255,0.2)',
-              boxShadow: '0 20px 50px rgba(0,0,0,0.85)',
-            }}
-            onClick={(e) => e.stopPropagation()}
+            className="media-modal-inner"
+            onClick={e => e.stopPropagation()}
           >
             <button
+              type="button"
               onClick={() => setShowImageModal(false)}
-              style={{
-                position: 'absolute',
-                top: '16px',
-                right: '16px',
-                background: 'rgba(0,0,0,0.6)',
-                border: 'none',
-                color: '#fff',
-                borderRadius: '50%',
-                width: '32px',
-                height: '32px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                zIndex: 10,
-              }}
+              className="btn btn-ghost btn-icon-sm"
+              style={{ position: 'absolute', top: 12, right: 12, zIndex: 10 }}
             >
-              <X size={18} />
+              <X size={16} />
             </button>
 
             {isVideo ? (
-              <video
-                src={memory.image_url}
-                controls
-                autoPlay
-                style={{ maxWidth: '100%', maxHeight: '75vh', borderRadius: '10px' }}
-              />
+              <video src={memory.image_url} controls autoPlay style={{ maxWidth: '100%', maxHeight: '75vh', borderRadius: 'var(--r-md)' }} />
             ) : (
-              <img
-                src={memory.image_url}
-                alt="Full size memory attachment"
-                style={{ maxWidth: '100%', maxHeight: '75vh', borderRadius: '10px', objectFit: 'contain' }}
-              />
+              <img src={memory.image_url} alt="Memory attachment" style={{ maxWidth: '100%', maxHeight: '75vh', borderRadius: 'var(--r-md)', objectFit: 'contain' }} />
             )}
 
-            <div style={{ marginTop: '12px', color: '#e2e8f0', fontSize: '0.9rem' }}>
-              <strong>{memory.object || memory.original_text}</strong> &bull; 📍 {memory.location || 'Location'}
+            <div style={{ marginTop: 12, fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+              <strong style={{ color: 'var(--text-primary)' }}>{memory.object || memory.original_text}</strong>
+              {memory.location && <span> · 📍 {memory.location}</span>}
             </div>
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 };

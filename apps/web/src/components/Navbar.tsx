@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { 
-  Brain, MessageSquareQuote, Sparkles, RotateCcw, Play, User, 
-  Flame, LogIn, ShieldCheck, Phone, Radio, Bell, BarChart3, Download,
-  LayoutDashboard, Compass, Mic, ChevronDown, Check 
+import {
+  Brain, MessageSquareQuote, Sparkles, RotateCcw, Play,
+  LogIn, ShieldCheck, BarChart3, Download,
+  LayoutDashboard, Compass, Mic, ChevronDown, Zap, Search
 } from 'lucide-react';
 import { AppStats } from '../types';
 import { auth } from '../services/firebase';
@@ -25,13 +25,18 @@ interface NavbarProps {
   userId: string;
 }
 
+const NAV_ITEMS: { tab: ActivePageTab; label: string; icon: React.ReactNode }[] = [
+  { tab: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={14} /> },
+  { tab: 'map',       label: 'Spatial Map', icon: <Compass size={14} /> },
+  { tab: 'voice',     label: 'Live Voice', icon: <Mic size={14} /> },
+  { tab: 'insights',  label: 'Insights', icon: <BarChart3 size={14} /> },
+];
+
 export const Navbar: React.FC<NavbarProps> = ({
   stats,
   activeTab,
   onNavigateToTab,
   onOpenAsk,
-  onOpenLiveCall,
-  onOpenInsights,
   onOpenAuth,
   onSeedGolden,
   onSeedFull,
@@ -39,307 +44,211 @@ export const Navbar: React.FC<NavbarProps> = ({
   onInstallPWA,
   canInstallPWA,
   isLoading,
-  userId,
 }) => {
   const currentUser = auth.currentUser;
   const [isPresetsOpen, setIsPresetsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Close dropdown on outside click
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+    const handler = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setIsPresetsOpen(false);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
   }, []);
 
+  const initials = currentUser?.displayName
+    ? currentUser.displayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+    : null;
+
   return (
-    <header
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '12px 24px',
-        background: 'rgba(18, 24, 38, 0.75)',
-        backdropFilter: 'blur(20px)',
-        WebkitBackdropFilter: 'blur(20px)',
-        borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-        borderRadius: '16px',
-        margin: '0 0 20px 0',
-        position: 'sticky',
-        top: '12px',
-        zIndex: 1000,
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
-      }}
-    >
-      {/* Left: Brand Identity */}
-      <div 
+    <header className="navbar">
+      {/* Brand */}
+      <div
+        className="navbar-brand"
         onClick={() => onNavigateToTab('dashboard')}
-        style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}
+        role="button"
+        tabIndex={0}
+        onKeyDown={e => e.key === 'Enter' && onNavigateToTab('dashboard')}
       >
-        <div
-          style={{
-            width: '38px',
-            height: '38px',
-            borderRadius: '12px',
-            background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 0 15px rgba(99, 102, 241, 0.4)',
-          }}
-        >
-          <Brain size={22} color="#ffffff" />
+        <div className="navbar-logo">
+          <Brain size={18} color="#ffffff" />
         </div>
         <div>
-          <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#f8fafc', letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            AfterMe
-            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#4edea3' }} className="animate-pulse" />
-          </div>
-          <div style={{ fontSize: '0.68rem', color: '#94a3b8', letterSpacing: '0.02em', fontFamily: 'JetBrains Mono' }}>
-            PROACTIVE SPATIAL AI
-          </div>
+          <div className="navbar-wordmark">AfterMe</div>
+          <div className="navbar-tagline">Proactive Spatial AI</div>
         </div>
       </div>
 
-      {/* Center: Segmented Navigation Pill */}
-      <nav
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          background: 'rgba(255, 255, 255, 0.04)',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
-          borderRadius: '30px',
-          padding: '4px',
-          gap: '4px',
-        }}
-      >
-        <button
-          type="button"
-          onClick={() => onNavigateToTab('dashboard')}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '6px 14px',
-            borderRadius: '20px',
-            border: 'none',
-            fontSize: '0.82rem',
-            fontWeight: activeTab === 'dashboard' ? 700 : 500,
-            background: activeTab === 'dashboard' ? 'rgba(128, 131, 255, 0.25)' : 'transparent',
-            color: activeTab === 'dashboard' ? '#c0c1ff' : '#94a3b8',
-            boxShadow: activeTab === 'dashboard' ? '0 0 12px rgba(192, 193, 255, 0.2)' : 'none',
-            cursor: 'pointer',
-            transition: 'all 0.2s ease',
-          }}
-        >
-          <LayoutDashboard size={15} />
-          <span>Dashboard</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => onNavigateToTab('map')}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '6px 14px',
-            borderRadius: '20px',
-            border: 'none',
-            fontSize: '0.82rem',
-            fontWeight: activeTab === 'map' ? 700 : 500,
-            background: activeTab === 'map' ? 'rgba(128, 131, 255, 0.25)' : 'transparent',
-            color: activeTab === 'map' ? '#c0c1ff' : '#94a3b8',
-            boxShadow: activeTab === 'map' ? '0 0 12px rgba(192, 193, 255, 0.2)' : 'none',
-            cursor: 'pointer',
-            transition: 'all 0.2s ease',
-          }}
-        >
-          <Compass size={15} />
-          <span>Spatial Map</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => onNavigateToTab('voice')}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '6px 14px',
-            borderRadius: '20px',
-            border: 'none',
-            fontSize: '0.82rem',
-            fontWeight: activeTab === 'voice' ? 700 : 500,
-            background: activeTab === 'voice' ? 'rgba(128, 131, 255, 0.25)' : 'transparent',
-            color: activeTab === 'voice' ? '#c0c1ff' : '#94a3b8',
-            boxShadow: activeTab === 'voice' ? '0 0 12px rgba(192, 193, 255, 0.2)' : 'none',
-            cursor: 'pointer',
-            transition: 'all 0.2s ease',
-          }}
-        >
-          <Mic size={15} />
-          <span>Live Voice</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => onNavigateToTab('insights')}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '6px 14px',
-            borderRadius: '20px',
-            border: 'none',
-            fontSize: '0.82rem',
-            fontWeight: activeTab === 'insights' ? 700 : 500,
-            background: activeTab === 'insights' ? 'rgba(128, 131, 255, 0.25)' : 'transparent',
-            color: activeTab === 'insights' ? '#c0c1ff' : '#94a3b8',
-            boxShadow: activeTab === 'insights' ? '0 0 12px rgba(192, 193, 255, 0.2)' : 'none',
-            cursor: 'pointer',
-            transition: 'all 0.2s ease',
-          }}
-        >
-          <BarChart3 size={15} />
-          <span>Insights</span>
-        </button>
+      {/* Center Nav Tabs */}
+      <nav className="nav-tabs">
+        {NAV_ITEMS.map(({ tab, label, icon }) => (
+          <button
+            key={tab}
+            type="button"
+            className={`nav-tab${activeTab === tab ? ' active' : ''}`}
+            onClick={() => onNavigateToTab(tab)}
+            aria-current={activeTab === tab ? 'page' : undefined}
+          >
+            {icon}
+            <span>{label}</span>
+          </button>
+        ))}
       </nav>
 
-      {/* Right: Actions & Profile */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-        {/* PWA Install Button (if available) */}
-        {canInstallPWA && onInstallPWA && (
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            onClick={onInstallPWA}
-            title="Install App"
-            style={{ padding: '6px 10px', fontSize: '0.76rem', color: '#38bdf8', borderColor: 'rgba(56, 189, 248, 0.3)' }}
+      {/* Right Actions */}
+      <div className="nav-actions">
+        {/* Live Status */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: '4px 10px',
+            background: 'var(--success-subtle)',
+            border: '1px solid var(--success-border)',
+            borderRadius: 'var(--r-full)',
+          }}
+        >
+          <div className="live-dot" />
+          <span
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: '0.7rem',
+              color: 'var(--success-text)',
+              letterSpacing: '0.06em',
+            }}
           >
-            <Download size={13} />
-            <span>Install</span>
-          </button>
-        )}
+            LIVE
+          </span>
+        </div>
 
-        {/* Demo Presets Dropdown */}
+        {/* Ask AI Button */}
+        <button
+          type="button"
+          className="btn btn-primary btn-sm"
+          onClick={onOpenAsk}
+          id="ask-ai-btn"
+        >
+          <MessageSquareQuote size={14} />
+          <span>Ask AI</span>
+        </button>
+
+        {/* Demo Presets */}
         <div ref={dropdownRef} style={{ position: 'relative' }}>
           <button
             type="button"
-            className="btn btn-secondary btn-sm"
+            className="btn btn-ghost btn-sm"
             onClick={() => setIsPresetsOpen(!isPresetsOpen)}
-            style={{ padding: '6px 12px', fontSize: '0.78rem', gap: '4px' }}
+            disabled={isLoading}
+            id="demo-presets-btn"
           >
-            <Sparkles size={13} color="#fbbf24" />
-            <span>Demo Presets</span>
-            <ChevronDown size={12} />
+            <Zap size={13} color="var(--warning-text)" />
+            <span>Demo</span>
+            <ChevronDown
+              size={12}
+              style={{
+                transform: isPresetsOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                transition: 'transform 180ms ease',
+              }}
+            />
           </button>
 
           {isPresetsOpen && (
-            <div
-              style={{
-                position: 'absolute',
-                top: 'calc(100% + 8px)',
-                right: 0,
-                width: '210px',
-                background: 'rgba(18, 24, 38, 0.95)',
-                backdropFilter: 'blur(20px)',
-                border: '1px solid rgba(255, 255, 255, 0.12)',
-                borderRadius: '12px',
-                padding: '6px',
-                boxShadow: '0 10px 30px rgba(0, 0, 0, 0.6)',
-                zIndex: 2000,
-                animation: 'fadeIn 0.15s ease',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '4px',
-              }}
-            >
+            <div className="dropdown-menu" style={{ minWidth: '200px' }}>
               <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={() => {
-                  setIsPresetsOpen(false);
-                  onSeedGolden();
-                }}
+                className="dropdown-item"
+                onClick={() => { setIsPresetsOpen(false); onSeedGolden(); }}
                 disabled={isLoading}
-                style={{ justifyContent: 'flex-start', border: 'none', background: 'rgba(255,255,255,0.04)', padding: '8px 10px' }}
               >
-                <Play size={14} color="#fbbf24" />
-                <span style={{ fontSize: '0.8rem' }}>1-Click Golden Demo</span>
+                <Play size={14} color="var(--warning-text)" />
+                1-Click Golden Demo
               </button>
-
               <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={() => {
-                  setIsPresetsOpen(false);
-                  onSeedFull();
-                }}
+                className="dropdown-item"
+                onClick={() => { setIsPresetsOpen(false); onSeedFull(); }}
                 disabled={isLoading}
-                style={{ justifyContent: 'flex-start', border: 'none', background: 'rgba(255,255,255,0.04)', padding: '8px 10px' }}
               >
-                <Sparkles size={14} color="#38bdf8" />
-                <span style={{ fontSize: '0.8rem' }}>Full Multimodal Set</span>
+                <Sparkles size={14} color="var(--info-text)" />
+                Full Multimodal Set
               </button>
-
+              <div className="dropdown-separator" />
               <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={() => {
-                  setIsPresetsOpen(false);
-                  onResetDemo();
-                }}
+                className="dropdown-item danger"
+                onClick={() => { setIsPresetsOpen(false); onResetDemo(); }}
                 disabled={isLoading}
-                style={{ justifyContent: 'flex-start', border: 'none', background: 'rgba(239,68,68,0.08)', color: '#f87171', padding: '8px 10px' }}
               >
                 <RotateCcw size={14} />
-                <span style={{ fontSize: '0.8rem' }}>Reset All Data</span>
+                Reset All Data
               </button>
             </div>
           )}
         </div>
 
-        {/* User Auth Button */}
+        {/* Install PWA */}
+        {canInstallPWA && onInstallPWA && (
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            onClick={onInstallPWA}
+            title="Install as App"
+          >
+            <Download size={13} />
+          </button>
+        )}
+
+        {/* Auth */}
         <button
           type="button"
-          className="btn btn-secondary btn-sm"
+          className={`btn btn-sm ${currentUser ? 'btn-success' : 'btn-secondary'}`}
           onClick={onOpenAuth}
-          style={{
-            padding: '6px 12px',
-            fontSize: '0.78rem',
-            borderColor: currentUser ? 'rgba(16, 185, 129, 0.4)' : 'rgba(255, 255, 255, 0.1)',
-            background: currentUser ? 'rgba(16, 185, 129, 0.1)' : undefined,
-          }}
+          id="auth-btn"
+          style={{ gap: 6 }}
         >
           {currentUser ? (
-            <>
-              <ShieldCheck size={13} color="#34d399" />
-              <span style={{ maxWidth: '90px', overflow: 'hidden', textOverflow: 'ellipsis', color: '#34d399', fontWeight: 600 }}>
-                {currentUser.displayName?.split(' ')[0] || 'User'}
-              </span>
-            </>
+            initials ? (
+              <>
+                <div
+                  style={{
+                    width: 20,
+                    height: 20,
+                    borderRadius: '50%',
+                    background: 'var(--accent)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '0.6rem',
+                    fontWeight: 700,
+                    color: '#fff',
+                  }}
+                >
+                  {initials}
+                </div>
+                <span
+                  style={{
+                    maxWidth: 80,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {currentUser.displayName?.split(' ')[0] || 'User'}
+                </span>
+              </>
+            ) : (
+              <>
+                <ShieldCheck size={13} />
+                <span>Signed In</span>
+              </>
+            )
           ) : (
             <>
-              <LogIn size={13} color="#c0c1ff" />
+              <LogIn size={13} />
               <span>Sign In</span>
             </>
           )}
-        </button>
-
-        {/* Ask AfterMe Hero Button */}
-        <button
-          type="button"
-          className="btn btn-primary btn-sm"
-          onClick={onOpenAsk}
-          style={{ padding: '6px 14px', fontSize: '0.82rem', fontWeight: 700 }}
-        >
-          <MessageSquareQuote size={15} />
-          <span>Ask AI</span>
         </button>
       </div>
     </header>

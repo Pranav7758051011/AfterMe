@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Phone, PhoneOff, Mic, MicOff, Volume2, VolumeX, Sparkles, 
-  Brain, MessageSquare, Radio, CheckCircle2, Send, AlertCircle, Bot, User 
+import {
+  Mic, MicOff, Volume2, VolumeX, Sparkles,
+  Brain, Send, Square, User
 } from 'lucide-react';
 import { useSpeechToText } from '../hooks/useSpeechToText';
 import { useTextToSpeech } from '../hooks/useTextToSpeech';
@@ -11,349 +11,315 @@ interface VoicePageProps {
   currentLocation: string;
 }
 
-const QUICK_CALL_QUESTIONS = [
+const QUICK_QUESTIONS = [
   'Where did I leave my charger?',
   'Where is my car parked?',
   'Where is my passport?',
-  'Remember my keys are on the living room table',
+  'Remember: my keys are on the living room table',
 ];
 
+type VoiceState = 'idle' | 'listening' | 'processing' | 'speaking';
+
 export const VoicePage: React.FC<VoicePageProps> = ({ currentLocation }) => {
-  const [transcriptHistory, setTranscriptHistory] = useState<Array<{ sender: 'user' | 'ai'; text: string }>>([
-    { sender: 'ai', text: `Hi! I'm your AfterMe live voice assistant. You are currently at ${currentLocation}. Speak naturally to store or retrieve anything!` }
+  const [history, setHistory] = useState<Array<{ sender: 'user' | 'ai'; text: string; time: string }>>([
+    {
+      sender: 'ai',
+      text: `Hi! I'm your AfterMe live voice assistant. You're at ${currentLocation}. Speak naturally to store or retrieve anything.`,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    },
   ]);
-  const [currentThought, setCurrentThought] = useState<string | null>(null);
   const [textInput, setTextInput] = useState('');
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [voiceState, setVoiceState] = useState<VoiceState>('idle');
+  const [thinkingText, setThinkingText] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const { speak, stop: stopSpeaking, isSpeaking } = useTextToSpeech();
+  const { isListening, isSupported, toggleListening } = useSpeechToText(transcript => {
+    setTextInput(prev => prev ? `${prev} ${transcript}` : transcript);
+  });
 
-  // Scroll to bottom of conversation stream
+  const now = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [transcriptHistory, currentThought]);
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  }, [history, thinkingText]);
 
-  const processUserQuery = async (queryText: string) => {
-    if (!queryText.trim() || isProcessing) return;
+  useEffect(() => {
+    setVoiceState(isSpeaking ? 'speaking' : isListening ? 'listening' : voiceState === 'processing' ? 'processing' : 'idle');
+  }, [isSpeaking, isListening]);
 
-    // Interrupt AI speech if talking
+  const processQuery = async (queryText: string) => {
+    if (!queryText.trim() || voiceState === 'processing') return;
     stopSpeaking();
 
-    const userUtterance = queryText.trim();
+    const utterance = queryText.trim();
     setTextInput('');
-    setTranscriptHistory((prev) => [...prev, { sender: 'user', text: userUtterance }]);
-    setIsProcessing(true);
-    setCurrentThought('Reasoning with Google Gemini 2.5 Flash...');
+    setHistory(prev => [...prev, { sender: 'user', text: utterance, time: now() }]);
+    setVoiceState('processing');
+    setThinkingText('Reasoning with Gemini…');
 
     try {
-      const lower = userUtterance.toLowerCase();
+      const lower = utterance.toLowerCase();
+      let answer: string;
+
       if (lower.startsWith('remember') || lower.startsWith('i left') || lower.startsWith('i put') || lower.startsWith('parked')) {
-        const createRes = await api.createMemory(userUtterance, currentLocation);
-        const obj = createRes.extraction?.object || 'item';
-        const loc = createRes.extraction?.location || currentLocation;
-        const confirmAnswer = `Got it! I recorded that your ${obj} is at ${loc}.`;
-
-        setCurrentThought(null);
-        setTranscriptHistory((prev) => [...prev, { sender: 'ai', text: confirmAnswer }]);
-        speak(confirmAnswer);
+        const res = await api.createMemory(utterance, currentLocation);
+        const obj = res.extraction?.object || 'item';
+        const loc = res.extraction?.location || currentLocation;
+        answer = `Got it! I've recorded that your ${obj} is at ${loc}.`;
       } else {
-        const askRes = await api.askAfterMe(userUtterance, currentLocation);
-        const answer = askRes.answer || "I checked your memories and couldn't find a matching record.";
-
-        setCurrentThought(null);
-        setTranscriptHistory((prev) => [...prev, { sender: 'ai', text: answer }]);
-        speak(answer);
+        const res = await api.askAfterMe(utterance, currentLocation);
+        answer = res.answer || "I checked your memories but couldn't find a matching record.";
       }
-    } catch (err) {
-      console.warn('Voice call error:', err);
-      const fallback = "I'm listening, but had trouble reaching the AI engine. Please speak or type again.";
-      setCurrentThought(null);
-      setTranscriptHistory((prev) => [...prev, { sender: 'ai', text: fallback }]);
+
+      setThinkingText('');
+      setHistory(prev => [...prev, { sender: 'ai', text: answer, time: now() }]);
+      speak(answer);
+    } catch {
+      const fallback = "I'm listening, but had trouble reaching the AI engine. Please try again.";
+      setThinkingText('');
+      setHistory(prev => [...prev, { sender: 'ai', text: fallback, time: now() }]);
       speak(fallback);
     } finally {
-      setIsProcessing(false);
+      setVoiceState('idle');
     }
   };
 
-  const { isListening, isSupported, errorMessage: micError, toggleListening } = useSpeechToText((transcript) => {
-    processUserQuery(transcript);
-  });
+  const handleMicClick = async () => {
+    if (isListening && textInput.trim()) {
+      toggleListening();
+      await processQuery(textInput);
+    } else {
+      toggleListening();
+    }
+  };
+
+  const ORB_LABELS: Record<VoiceState, string> = {
+    idle:       'READY',
+    listening:  'LISTENING',
+    processing: 'THINKING',
+    speaking:   'SPEAKING',
+  };
+
+  const ORB_COLORS: Record<VoiceState, string> = {
+    idle:       'var(--accent)',
+    listening:  'var(--danger)',
+    processing: 'var(--warning)',
+    speaking:   'var(--success)',
+  };
 
   return (
-    <div
-      style={{
-        maxWidth: '720px',
-        margin: '0 auto',
-        animation: 'fadeIn 0.25s ease',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        textAlign: 'center',
-      }}
-    >
-      {/* Header Badge */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-        <span
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
-            background: isListening ? 'rgba(78, 222, 163, 0.15)' : 'rgba(99, 102, 241, 0.15)',
-            border: isListening ? '1px solid #4edea3' : '1px solid rgba(99, 102, 241, 0.4)',
-            padding: '4px 12px',
-            borderRadius: '20px',
-            fontSize: '0.78rem',
-            fontWeight: 700,
-            color: isListening ? '#4edea3' : '#c0c1ff',
-          }}
-        >
-          <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: isListening ? '#4edea3' : '#c0c1ff' }} className="animate-pulse" />
-          <span>GEMINI 2.0 LIVE VOICE &bull; 📍 {currentLocation}</span>
-        </span>
+    <div style={{ animation: 'fadeUp 0.3s var(--ease-out)', maxWidth: 720, margin: '0 auto' }}>
+      {/* Page Header */}
+      <div style={{ textAlign: 'center', marginBottom: 'var(--sp-8)' }}>
+        <h1 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.03em', marginBottom: 4 }}>
+          Live Voice Mode
+        </h1>
+        <p style={{ fontSize: '0.875rem', color: 'var(--text-tertiary)' }}>
+          Speak to store or retrieve memories using Gemini AI
+        </p>
       </div>
 
-      {/* Central Stitch AI Ambient Glowing Voice Orb */}
-      <div style={{ position: 'relative', width: '240px', height: '240px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '20px 0 28px' }}>
-        {/* Animated Ripple Rings */}
-        <div
-          style={{
-            position: 'absolute',
-            width: '100%',
-            height: '100%',
-            borderRadius: '50%',
-            border: '2px solid rgba(78, 222, 163, 0.4)',
-            boxShadow: '0 0 20px rgba(78, 222, 163, 0.2)',
-            animation: isListening ? 'micPulseGlow 2s infinite ease-in-out' : undefined,
-          }}
-        />
-
-        {/* Central Orb */}
-        <div
-          style={{
-            width: '160px',
-            height: '160px',
-            borderRadius: '50%',
-            background: isSpeaking
-              ? 'radial-gradient(circle at 30% 30%, #c0c1ff 0%, #8083ff 60%, #494bd6 100%)'
-              : isListening
-              ? 'radial-gradient(circle at 30% 30%, #6ffbbe 0%, #00885d 60%, #003824 100%)'
-              : 'radial-gradient(circle at 30% 30%, #c0c1ff 0%, #8083ff 60%, #121826 100%)',
-            boxShadow: isSpeaking
-              ? '0 0 60px rgba(192, 193, 255, 0.5), inset 0 0 30px rgba(255,255,255,0.4)'
-              : isListening
-              ? '0 0 50px rgba(78, 222, 163, 0.6), inset 0 0 30px rgba(255,255,255,0.4)'
-              : '0 0 40px rgba(192, 193, 255, 0.3), inset 0 0 20px rgba(255,255,255,0.3)',
-            animation: isSpeaking || isListening ? 'pulse 1.3s infinite ease-in-out' : 'bounce 3s infinite ease-in-out',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            zIndex: 10,
-          }}
-          onClick={toggleListening}
-          title={isListening ? 'Click to Mute' : 'Click to Speak'}
-        >
-          <Brain size={56} color="#ffffff" />
-        </div>
-      </div>
-
-      {/* Dynamic Status Text */}
-      <h2 style={{ fontSize: '1.6rem', fontWeight: 800, color: '#c0c1ff', marginBottom: '6px' }}>
-        {isSpeaking ? 'AfterMe Voice Speaking...' : isListening ? 'Gemini 2.0 Listening...' : isProcessing ? 'Reasoning with Gemini...' : 'Ready for Voice'}
-      </h2>
-      <p style={{ fontSize: '0.9rem', color: '#94a3b8', maxWidth: '480px', marginBottom: '24px' }}>
-        Speak naturally. I analyze spatial context from your recent memories and GPS location.
-      </p>
-
-      {/* Mic Error Notice */}
-      {micError && (
-        <div
-          style={{
-            padding: '8px 14px',
-            background: 'rgba(239, 68, 68, 0.15)',
-            border: '1px solid #ef4444',
-            borderRadius: '10px',
-            color: '#f87171',
-            fontSize: '0.8rem',
-            marginBottom: '16px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-          }}
-        >
-          <AlertCircle size={16} />
-          <span>{micError}</span>
-        </div>
-      )}
-
-      {/* Gemini Reasoning Bubble */}
-      {currentThought && (
-        <div
-          style={{
-            padding: '6px 16px',
-            background: 'rgba(99, 102, 241, 0.2)',
-            border: '1px solid rgba(99, 102, 241, 0.4)',
-            borderRadius: '20px',
-            fontSize: '0.78rem',
-            color: '#c7d2fe',
-            marginBottom: '16px',
-            animation: 'fadeIn 0.2s ease',
-          }}
-        >
-          {currentThought}
-        </div>
-      )}
-
-      {/* Stitch AI Transcript Box */}
-      <div
-        ref={scrollRef}
-        style={{
-          width: '100%',
-          maxHeight: '180px',
-          overflowY: 'auto',
-          background: 'rgba(18, 24, 38, 0.7)',
-          backdropFilter: 'blur(16px)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-          borderRadius: '16px',
-          padding: '16px',
-          textAlign: 'left',
-          marginBottom: '20px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '12px',
-        }}
-      >
-        {transcriptHistory.map((item, idx) => (
+      {/* Layout: Orb + Chat */}
+      <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr', gap: 'var(--sp-6)', alignItems: 'start' }}>
+        {/* Left: Voice Orb Panel */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--sp-5)' }}>
+          {/* Orb */}
           <div
-            key={idx}
-            style={{
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: '10px',
-              justifyContent: item.sender === 'user' ? 'flex-end' : 'flex-start',
-            }}
+            className="voice-orb-container"
+            onClick={handleMicClick}
+            style={{ cursor: 'pointer' }}
           >
-            {item.sender === 'ai' && (
-              <div
-                style={{
-                  width: '32px',
-                  height: '32px',
-                  borderRadius: '50%',
-                  background: 'rgba(128, 131, 255, 0.2)',
-                  border: '1px solid rgba(128, 131, 255, 0.3)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0,
-                }}
-              >
-                <Brain size={16} color="#c0c1ff" />
-              </div>
+            {/* Outer rings */}
+            {(voiceState === 'listening' || voiceState === 'speaking') && (
+              <>
+                <div style={{ position: 'absolute', width: '170px', height: '170px', borderRadius: '50%', border: `1px solid ${ORB_COLORS[voiceState]}30`, animation: 'radarPulse 2s ease-out infinite' }} />
+                <div style={{ position: 'absolute', width: '170px', height: '170px', borderRadius: '50%', border: `1px solid ${ORB_COLORS[voiceState]}20`, animation: 'radarPulse 2s ease-out infinite 0.6s' }} />
+              </>
             )}
-
             <div
+              className={`voice-orb ${voiceState}`}
               style={{
-                background: item.sender === 'user' ? 'linear-gradient(135deg, #6366f1, #4f46e5)' : 'rgba(255, 255, 255, 0.06)',
-                padding: '10px 14px',
-                borderRadius: '14px',
-                maxWidth: '80%',
-                fontSize: '0.86rem',
-                color: '#ffffff',
-                lineHeight: 1.4,
+                background: `radial-gradient(circle at 35% 35%, color-mix(in srgb, ${ORB_COLORS[voiceState]} 40%, #fff), ${ORB_COLORS[voiceState]})`,
+                boxShadow: `0 0 0 12px ${ORB_COLORS[voiceState]}15, 0 0 0 24px ${ORB_COLORS[voiceState]}08, 0 8px 32px ${ORB_COLORS[voiceState]}40`,
               }}
             >
-              <span style={{ display: 'block', fontSize: '0.68rem', color: item.sender === 'user' ? '#c7d2fe' : '#7bd0ff', fontWeight: 700, marginBottom: '2px', textTransform: 'uppercase', fontFamily: 'JetBrains Mono' }}>
-                {item.sender === 'user' ? 'USER' : 'AI'}
-              </span>
-              {item.text}
+              {voiceState === 'processing' ? (
+                <div className="live-dot" style={{ width: 12, height: 12 }} />
+              ) : voiceState === 'speaking' ? (
+                <Volume2 size={32} color="#fff" />
+              ) : isListening ? (
+                <Mic size={32} color="#fff" />
+              ) : (
+                <Mic size={28} color="#fff" />
+              )}
             </div>
           </div>
-        ))}
-      </div>
 
-      {/* Quick Question Suggestion Chips */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center', marginBottom: '20px', width: '100%' }}>
-        {QUICK_CALL_QUESTIONS.map((q, idx) => (
-          <button
-            key={idx}
-            type="button"
-            className="example-chip"
-            onClick={() => processUserQuery(q)}
-            style={{ fontSize: '0.76rem', padding: '4px 10px' }}
+          {/* Status Label */}
+          <div
+            className="voice-status-label"
+            style={{
+              color: ORB_COLORS[voiceState],
+              borderColor: `${ORB_COLORS[voiceState]}30`,
+              background: `${ORB_COLORS[voiceState]}10`,
+            }}
           >
-            "{q}"
-          </button>
-        ))}
-      </div>
+            {ORB_LABELS[voiceState]}
+          </div>
 
-      {/* Controls Area (Equalizer + Mute FAB + Text Fallback) */}
-      <div
-        style={{
-          width: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          background: 'rgba(18, 24, 38, 0.7)',
-          backdropFilter: 'blur(16px)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-          borderRadius: '50px',
-          padding: '8px 14px',
-          gap: '12px',
-        }}
-      >
-        {/* Text Input Fallback inside bar */}
-        <input
-          type="text"
-          placeholder="Type or speak a question..."
-          value={textInput}
-          onChange={(e) => setTextInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              processUserQuery(textInput);
-            }
-          }}
-          style={{
-            flex: 1,
-            background: 'transparent',
-            border: 'none',
-            color: '#ffffff',
-            padding: '8px 12px',
-            fontSize: '0.85rem',
-            outline: 'none',
-          }}
-        />
+          {/* Location Badge */}
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)', letterSpacing: '0.08em', marginBottom: 4 }}>AT LOCATION</div>
+            <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'center' }}>
+              <span>📍</span>
+              <span style={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{currentLocation}</span>
+            </div>
+          </div>
 
-        {/* Stitch AI Live Equalizer Soundwave */}
-        <div style={{ display: 'flex', alignItems: 'flex-end', height: '24px', gap: '3px' }}>
-          <span className="soundwave-bar" style={{ background: isListening ? '#4edea3' : '#94a3b8' }} />
-          <span className="soundwave-bar" style={{ background: isListening ? '#4edea3' : '#94a3b8' }} />
-          <span className="soundwave-bar" style={{ background: isListening ? '#4edea3' : '#94a3b8' }} />
-          <span className="soundwave-bar" style={{ background: isListening ? '#4edea3' : '#94a3b8' }} />
-          <span className="soundwave-bar" style={{ background: isListening ? '#4edea3' : '#94a3b8' }} />
+          {/* Stop TTS Button */}
+          {isSpeaking && (
+            <button
+              type="button"
+              className="btn btn-destructive btn-sm"
+              onClick={stopSpeaking}
+              style={{ fontSize: '0.78rem' }}
+            >
+              <Square size={12} />
+              Stop Voice
+            </button>
+          )}
+
+          {/* Quick questions */}
+          <div style={{ width: '100%' }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6rem', color: 'var(--text-tertiary)', letterSpacing: '0.1em', marginBottom: 'var(--sp-2)', textAlign: 'center' }}>
+              QUICK ASK
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {QUICK_QUESTIONS.map((q, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  className="sample-question"
+                  onClick={() => processQuery(q)}
+                  disabled={voiceState === 'processing'}
+                  style={{ fontSize: '0.75rem', padding: 'var(--sp-2) var(--sp-3)' }}
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
-        {/* Main Microphone Action FAB */}
-        <button
-          type="button"
-          className={`btn ${isListening ? 'mic-unmuted-glow' : 'mic-muted-glow'}`}
-          onClick={toggleListening}
-          style={{
-            width: '48px',
-            height: '48px',
-            borderRadius: '50%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 0,
-          }}
-          title={isListening ? 'Click to Mute' : 'Click to Unmute & Speak'}
-        >
-          {isListening ? <Mic size={22} color="#ffffff" /> : <MicOff size={22} color="#f87171" />}
-        </button>
+        {/* Right: Chat Stream */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
+          {/* Transcript */}
+          <div
+            ref={scrollRef}
+            style={{
+              height: 380,
+              overflowY: 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 'var(--sp-3)',
+              padding: 'var(--sp-4)',
+              background: 'var(--bg-secondary)',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: 'var(--r-lg)',
+            }}
+          >
+            {history.map((msg, i) => (
+              <div
+                key={i}
+                className={`chat-msg ${msg.sender === 'user' ? 'chat-msg-user' : 'chat-msg-ai'}`}
+              >
+                {msg.sender === 'ai' && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 4, fontSize: '0.7rem', color: 'var(--accent)' }}>
+                    <Brain size={11} />
+                    <span style={{ fontFamily: 'var(--font-mono)', letterSpacing: '0.04em' }}>AfterMe AI</span>
+                  </div>
+                )}
+                <div className={msg.sender === 'user' ? 'chat-bubble-user' : 'chat-bubble-ai'}>
+                  {msg.text}
+                </div>
+                <div className="chat-time">{msg.time}</div>
+              </div>
+            ))}
+
+            {thinkingText && (
+              <div className="chat-msg chat-msg-ai">
+                <div className="chat-bubble-ai" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div className="live-dot" />
+                  <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>{thinkingText}</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Text Input Row */}
+          <form
+            onSubmit={e => { e.preventDefault(); processQuery(textInput); }}
+            style={{ display: 'flex', gap: 'var(--sp-2)', alignItems: 'center' }}
+          >
+            {isSupported && (
+              <button
+                type="button"
+                className={`mic-btn${isListening ? ' recording' : ''}`}
+                onClick={handleMicClick}
+                style={{ flexShrink: 0 }}
+              >
+                {isListening ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                    <Mic size={16} />
+                    <div className="soundwave-visualizer">
+                      <span className="soundwave-bar" /><span className="soundwave-bar" /><span className="soundwave-bar" />
+                    </div>
+                  </div>
+                ) : (
+                  <MicOff size={16} />
+                )}
+              </button>
+            )}
+
+            <input
+              type="text"
+              className="form-input"
+              placeholder='Speak or type: "Where is my passport?"'
+              value={textInput}
+              onChange={e => setTextInput(e.target.value)}
+              disabled={voiceState === 'processing'}
+              style={{ flex: 1 }}
+            />
+
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={voiceState === 'processing' || !textInput.trim()}
+              style={{ padding: '10px 14px', flexShrink: 0 }}
+            >
+              <Send size={15} />
+            </button>
+          </form>
+
+          {isListening && (
+            <div style={{
+              padding: '6px 12px',
+              background: 'var(--danger-subtle)',
+              border: '1px solid var(--danger-border)',
+              borderRadius: 'var(--r-md)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              color: 'var(--danger-text)',
+              fontSize: '0.8rem',
+              fontWeight: 500,
+            }}>
+              <div className="live-dot" style={{ background: 'var(--danger-text)' }} />
+              Mic active — speak now, then tap mic to send
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

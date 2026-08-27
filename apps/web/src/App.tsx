@@ -240,7 +240,7 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="app-container" style={{ position: 'relative', paddingBottom: '90px' }}>
+    <div className="app-container" style={{ position: 'relative' }}>
       {/* WebGL Obsidian Shader Background */}
       <ShaderBackground />
 
@@ -263,7 +263,7 @@ export const App: React.FC = () => {
       />
 
       {/* Multi-Page Views */}
-      <main style={{ marginTop: '16px' }}>
+      <main>
         {activeTab === 'dashboard' && (
           <DashboardPage
             memories={memories}

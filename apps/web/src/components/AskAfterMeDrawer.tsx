@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
-import { 
-  X, MessageSquareQuote, Send, Sparkles, ShieldCheck, 
-  MapPin, CheckCircle2, AlertCircle, Mic, MicOff, BookOpen, Target,
-  Volume2, VolumeX, Square
+import React, { useState, useRef, useEffect } from 'react';
+import {
+  X, MessageSquareQuote, Send, Sparkles, ShieldCheck,
+  MapPin, CheckCircle2, Mic, MicOff, BookOpen, Target,
+  Volume2, VolumeX, Square, Brain
 } from 'lucide-react';
 import { AskResponse, Memory } from '../types';
 import { useSpeechToText } from '../hooks/useSpeechToText';
@@ -25,15 +25,15 @@ interface MessageItem {
   hasMatch?: boolean;
   confidence?: number;
   hint?: string;
+  timestamp: string;
 }
 
 const SAMPLE_QUESTIONS = [
   'Where did I leave my charger?',
-  'Where is my passport? I need it tomorrow.',
+  'Where is my passport?',
   'Where is my car parked?',
   'What tasks do I have due this week?',
   'Did I leave anything in the library?',
-  'Where are my keys? (Anti-hallucination test)',
 ];
 
 export const AskAfterMeDrawer: React.FC<AskAfterMeDrawerProps> = ({
@@ -50,15 +50,22 @@ export const AskAfterMeDrawer: React.FC<AskAfterMeDrawerProps> = ({
       id: 'welcome',
       sender: 'ai',
       text: 'Hello! I am your AfterMe memory assistant. Ask me anything about items you stored, things you left behind, tasks you noted, or commitments you made.',
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     },
   ]);
   const [isAsking, setIsAsking] = useState(false);
+  const bodyRef = useRef<HTMLDivElement>(null);
 
   const tts = useTextToSpeech();
-
-  const { isListening, isSupported: isSttSupported, toggleListening } = useSpeechToText((transcript) => {
-    setQuestion((prev) => (prev ? `${prev} ${transcript}` : transcript));
+  const { isListening, isSupported: isSttSupported, toggleListening } = useSpeechToText(transcript => {
+    setQuestion(prev => prev ? `${prev} ${transcript}` : transcript);
   });
+
+  useEffect(() => {
+    if (bodyRef.current) {
+      bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
+    }
+  }, [messages]);
 
   if (!isOpen) return null;
 
@@ -67,39 +74,25 @@ export const AskAfterMeDrawer: React.FC<AskAfterMeDrawerProps> = ({
     let lng = memory.longitude;
     const name = memory.location || 'Saved Location';
 
-    if ((lat === null || lat === undefined) && memory.location) {
-      const match = KNOWN_PLACES.find((p) => memory.location?.toLowerCase().includes(p.name.toLowerCase()));
-      if (match) {
-        lat = match.lat;
-        lng = match.lng;
-      } else {
-        lat = 37.7749;
-        lng = -122.4194;
-      }
+    if ((lat == null) && memory.location) {
+      const match = KNOWN_PLACES.find(p => memory.location?.toLowerCase().includes(p.name.toLowerCase()));
+      lat = match ? match.lat : 37.7749;
+      lng = match ? match.lng : -122.4194;
     }
 
-    if (lat !== null && lat !== undefined && lng !== null && lng !== undefined && onLocateOnMap) {
-      onLocateOnMap({
-        lat,
-        lng,
-        name,
-        label: memory.object || memory.task || memory.original_text,
-        memoryId: memory.id,
-      });
+    if (lat != null && lng != null && onLocateOnMap) {
+      onLocateOnMap({ lat, lng, name, label: memory.object || memory.task || memory.original_text, memoryId: memory.id });
     }
   };
+
+  const now = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   const handleSend = async (queryText?: string) => {
     const q = queryText || question;
     if (!q.trim() || isAsking) return;
 
-    const userMsg: MessageItem = {
-      id: `user-${Date.now()}`,
-      sender: 'user',
-      text: q.trim(),
-    };
-
-    setMessages((prev) => [...prev, userMsg]);
+    const userMsg: MessageItem = { id: `user-${Date.now()}`, sender: 'user', text: q.trim(), timestamp: now() };
+    setMessages(prev => [...prev, userMsg]);
     setQuestion('');
     setIsAsking(true);
 
@@ -113,28 +106,22 @@ export const AskAfterMeDrawer: React.FC<AskAfterMeDrawerProps> = ({
         hasMatch: res.has_match,
         confidence: res.confidence,
         hint: res.follow_up_hint,
+        timestamp: now(),
       };
-      setMessages((prev) => [...prev, aiMsg]);
+      setMessages(prev => [...prev, aiMsg]);
 
-      // Speak response aloud if autoSpeak is ON
-      if (autoSpeak) {
-        tts.speak(res.answer);
-      }
-
-      // Automatically circle the location on the map if verified memory is found!
-      if (res.has_match && res.relevant_memories && res.relevant_memories.length > 0) {
+      if (autoSpeak) tts.speak(res.answer);
+      if (res.has_match && res.relevant_memories?.length > 0) {
         triggerLocateOnMap(res.relevant_memories[0]);
       }
-    } catch (err: any) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `ai-err-${Date.now()}`,
-          sender: 'ai',
-          text: 'I ran into an issue searching memories. Please try again.',
-          hasMatch: false,
-        },
-      ]);
+    } catch {
+      setMessages(prev => [...prev, {
+        id: `ai-err-${Date.now()}`,
+        sender: 'ai',
+        text: 'I ran into an issue searching memories. Please try again.',
+        hasMatch: false,
+        timestamp: now(),
+      }]);
     } finally {
       setIsAsking(false);
     }
@@ -142,224 +129,177 @@ export const AskAfterMeDrawer: React.FC<AskAfterMeDrawerProps> = ({
 
   return (
     <div className="ask-drawer-overlay" onClick={onClose}>
-      <div className="ask-drawer" onClick={(e) => e.stopPropagation()}>
+      <div className="ask-drawer" onClick={e => e.stopPropagation()}>
+        {/* Header */}
         <div className="drawer-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div className="logo-badge" style={{ width: '32px', height: '32px' }}>
-              <MessageSquareQuote size={18} color="#fff" />
+          <div className="drawer-title">
+            <div style={{ width: 34, height: 34, borderRadius: 'var(--r-md)', background: 'var(--accent-subtle)', border: '1px solid var(--accent-border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Brain size={17} color="var(--accent)" />
             </div>
             <div>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Ask AfterMe</h3>
-              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                Grounded conversational retrieval &bull; Zero hallucinations
-              </p>
+              <div style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'var(--text-primary)' }}>Ask AfterMe</div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.65rem', color: 'var(--text-tertiary)', letterSpacing: '0.06em' }}>
+                GROUNDED · ZERO HALLUCINATION
+              </div>
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {/* Auto-Speak Toggle */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <button
-              className="btn btn-secondary btn-sm"
-              onClick={() => {
-                if (tts.isSpeaking) tts.stop();
-                setAutoSpeak(!autoSpeak);
-              }}
-              title={autoSpeak ? 'Voice Response Enabled (Click to Mute)' : 'Voice Response Muted'}
-              style={{
-                padding: '4px 8px',
-                fontSize: '0.72rem',
-                color: autoSpeak ? '#34d399' : 'var(--text-muted)',
-                borderColor: autoSpeak ? 'rgba(16, 185, 129, 0.4)' : undefined,
-              }}
+              type="button"
+              className={`btn btn-ghost btn-sm ${autoSpeak ? 'btn-success' : ''}`}
+              onClick={() => { if (tts.isSpeaking) tts.stop(); setAutoSpeak(!autoSpeak); }}
+              style={{ fontSize: '0.75rem', padding: '4px 10px' }}
             >
-              {autoSpeak ? <Volume2 size={14} /> : <VolumeX size={14} />}
-              <span>{autoSpeak ? 'Voice ON' : 'Muted'}</span>
+              {autoSpeak ? <Volume2 size={13} /> : <VolumeX size={13} />}
+              <span>{autoSpeak ? 'Voice' : 'Muted'}</span>
             </button>
-
-            <button className="btn btn-secondary btn-icon" onClick={() => { tts.stop(); onClose(); }}>
-              <X size={18} />
+            <button type="button" className="btn btn-ghost btn-icon-sm" onClick={() => { tts.stop(); onClose(); }}>
+              <X size={16} />
             </button>
           </div>
         </div>
 
         {/* Chat Stream */}
-        <div className="drawer-body">
-          {messages.map((m) => (
-            <div key={m.id} style={{ display: 'flex', flexDirection: 'column' }}>
-              <div className={m.sender === 'user' ? 'chat-bubble-user' : 'chat-bubble-ai'}>
-                {m.sender === 'ai' && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px', fontSize: '0.75rem', color: 'var(--accent-cyan)' }}>
-                    <Sparkles size={12} />
-                    <span>AfterMe Memory Engine</span>
-                    
-                    {/* Read Aloud Button */}
-                    <button
-                      type="button"
-                      onClick={() => (tts.isSpeaking ? tts.stop() : tts.speak(m.text))}
-                      style={{
-                        background: 'transparent',
-                        border: 'none',
-                        color: 'var(--accent-cyan)',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '3px',
-                        padding: '2px 6px',
-                        borderRadius: '4px',
-                      }}
-                      title="Read aloud"
+        <div className="drawer-body" ref={bodyRef}>
+          {messages.map(m => (
+            <div key={m.id} className={`chat-msg ${m.sender === 'user' ? 'chat-msg-user' : 'chat-msg-ai'}`}>
+              {m.sender === 'ai' && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, fontSize: '0.72rem', color: 'var(--accent)' }}>
+                  <Sparkles size={11} />
+                  <span style={{ fontFamily: 'var(--font-mono)', letterSpacing: '0.04em' }}>AfterMe AI</span>
+                  {m.hasMatch !== undefined && (
+                    <span
+                      className={`badge ${m.hasMatch ? 'badge-success' : 'badge-low'}`}
+                      style={{ marginLeft: 'auto', fontSize: '0.65rem' }}
                     >
-                      {tts.isSpeaking ? <Square size={11} color="#f87171" /> : <Volume2 size={12} />}
-                      <span style={{ fontSize: '0.7rem' }}>{tts.isSpeaking ? 'Stop' : 'Listen'}</span>
-                    </button>
+                      {m.hasMatch ? '✓ Verified' : 'No match'}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-icon-sm"
+                    onClick={() => tts.isSpeaking ? tts.stop() : tts.speak(m.text)}
+                    title="Read aloud"
+                    style={{ color: 'var(--text-tertiary)', width: 20, height: 20 }}
+                  >
+                    {tts.isSpeaking ? <Square size={10} /> : <Volume2 size={11} />}
+                  </button>
+                </div>
+              )}
 
-                    {m.hasMatch !== undefined && (
-                      <span
-                        className="badge"
-                        style={{
-                          marginLeft: 'auto',
-                          background: m.hasMatch ? 'rgba(16, 185, 129, 0.2)' : 'rgba(148, 163, 184, 0.15)',
-                          color: m.hasMatch ? '#34d399' : '#94a3b8',
-                        }}
-                      >
-                        {m.hasMatch ? '✓ Verified Memory' : 'Strict No-Hallucination'}
-                      </span>
-                    )}
-                  </div>
-                )}
+              <div className={m.sender === 'user' ? 'chat-bubble-user' : 'chat-bubble-ai'}>
                 <div style={{ whiteSpace: 'pre-wrap' }}>{m.text}</div>
 
-                {/* Relevant cited memory snippets */}
+                {/* Citations */}
                 {m.relevantMemories && m.relevantMemories.length > 0 && (
-                  <div style={{ marginTop: '12px', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '10px' }}>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <BookOpen size={12} />
-                      <span>Cited Memories:</span>
+                  <div style={{ marginTop: 'var(--sp-3)', borderTop: '1px solid var(--border-subtle)', paddingTop: 'var(--sp-3)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.72rem', color: 'var(--text-tertiary)', marginBottom: 'var(--sp-2)' }}>
+                      <BookOpen size={11} />
+                      <span style={{ fontFamily: 'var(--font-mono)', letterSpacing: '0.04em' }}>SOURCE MEMORIES</span>
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      {m.relevantMemories.map((mem) => (
-                        <div
-                          key={mem.id}
-                          style={{
-                            padding: '10px 12px',
-                            background: 'rgba(0,0,0,0.28)',
-                            borderRadius: '8px',
-                            border: '1px solid var(--border-subtle)',
-                            fontSize: '0.8rem',
-                          }}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-                            <strong>{mem.object || mem.task || mem.original_text.slice(0, 30)}</strong>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {m.relevantMemories.map(mem => (
+                        <div key={mem.id} className="citation-card">
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {mem.object || mem.task || mem.original_text.slice(0, 40)}
+                            </div>
                             {mem.location && (
-                              <span style={{ color: 'var(--accent-primary)', display: 'flex', alignItems: 'center', gap: '3px', fontWeight: 600 }}>
-                                <MapPin size={12} />
-                                {mem.location}
-                              </span>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>
+                                <MapPin size={10} />
+                                <span>{mem.location}</span>
+                              </div>
                             )}
                           </div>
-                          <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginBottom: '8px' }}>
-                            "{mem.original_text}"
-                          </div>
-
-                          {/* 1-Click Circle on Map Button */}
                           <button
                             type="button"
-                            className="btn btn-sm btn-primary"
+                            className="btn btn-success btn-xs"
                             onClick={() => triggerLocateOnMap(mem)}
-                            style={{
-                              padding: '4px 10px',
-                              fontSize: '0.72rem',
-                              background: 'linear-gradient(135deg, #10b981, #059669)',
-                              boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)',
-                            }}
                           >
-                            <Target size={12} />
-                            <span>🎯 Circle Area on Map</span>
+                            <Target size={11} />
+                            Map
                           </button>
                         </div>
                       ))}
                     </div>
                   </div>
                 )}
+
+                {m.hint && (
+                  <div style={{ marginTop: 'var(--sp-3)', fontSize: '0.78rem', color: 'var(--text-tertiary)', fontStyle: 'italic' }}>
+                    💡 {m.hint}
+                  </div>
+                )}
               </div>
+              <div className="chat-time">{m.timestamp}</div>
             </div>
           ))}
 
           {isAsking && (
-            <div className="chat-bubble-ai" style={{ width: '180px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <div className="location-pulse" style={{ width: '8px', height: '8px' }} />
-                <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Searching memories...</span>
+            <div className="chat-msg chat-msg-ai">
+              <div className="chat-bubble-ai" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div className="live-dot" />
+                <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Searching memories…</span>
               </div>
             </div>
           )}
         </div>
 
-        {/* Quick Suggestion Chips */}
-        <div style={{ padding: '0 24px', display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '8px' }}>
-          {SAMPLE_QUESTIONS.map((sq, idx) => (
+        {/* Quick Suggestions */}
+        <div style={{ padding: '0 var(--sp-6) var(--sp-3)', display: 'flex', gap: 6, overflowX: 'auto' }}>
+          {SAMPLE_QUESTIONS.map((sq, i) => (
             <button
-              key={idx}
+              key={i}
               type="button"
               className="example-chip"
               onClick={() => handleSend(sq)}
               disabled={isAsking}
-              style={{ fontSize: '0.75rem' }}
+              style={{ fontSize: '0.75rem', flexShrink: 0 }}
             >
               {sq}
             </button>
           ))}
         </div>
 
-        {/* Drawer Footer Input */}
+        {/* Footer Input */}
         <div className="drawer-footer">
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleSend();
-            }}
-            style={{ display: 'flex', gap: '8px', alignItems: 'center' }}
-          >
+          <form onSubmit={e => { e.preventDefault(); handleSend(); }} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
             {isSttSupported && (
               <button
                 type="button"
-                className={`mic-btn ${isListening ? 'recording mic-unmuted-glow' : 'mic-muted-glow'}`}
+                className={`mic-btn${isListening ? ' recording' : ''}`}
                 onClick={toggleListening}
-                title={isListening ? '🎙️ Mic Active (Unmuted) — Click to Mute / Send' : '🔇 Mic Muted — Click to Unmute & Speak'}
-                style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: isListening ? '0 12px' : undefined }}
+                style={{ flexShrink: 0 }}
               >
                 {isListening ? (
-                  <>
-                    <Mic size={18} color="#ffffff" />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                    <Mic size={16} />
                     <div className="soundwave-visualizer">
-                      <span className="soundwave-bar" />
-                      <span className="soundwave-bar" />
-                      <span className="soundwave-bar" />
+                      <span className="soundwave-bar" /><span className="soundwave-bar" /><span className="soundwave-bar" />
                     </div>
-                  </>
-                ) : (
-                  <MicOff size={18} color="#f87171" />
-                )}
+                  </div>
+                ) : <MicOff size={16} />}
               </button>
             )}
 
             <input
               type="text"
-              className="capture-input"
-              style={{ padding: '12px 14px', fontSize: '0.92rem' }}
-              placeholder='Ask AfterMe: "Where did I leave my charger?"'
+              className="form-input"
+              placeholder="Where did I leave my…"
               value={question}
-              onChange={(e) => setQuestion(e.target.value)}
+              onChange={e => setQuestion(e.target.value)}
               disabled={isAsking}
+              style={{ flex: 1 }}
             />
 
             <button
               type="submit"
               className="btn btn-primary"
               disabled={isAsking || !question.trim()}
-              style={{ padding: '12px 16px' }}
+              style={{ padding: '10px 14px', flexShrink: 0 }}
             >
-              <Send size={16} />
+              <Send size={15} />
             </button>
           </form>
         </div>

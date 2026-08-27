@@ -3,7 +3,10 @@ import { MemoryInput } from '../components/MemoryInput';
 import { MemoryCard } from '../components/MemoryCard';
 import { ProactiveAlertBanner } from '../components/ProactiveAlertBanner';
 import { Memory, ProactiveAlert, AppStats } from '../types';
-import { Search, ShieldCheck, Sparkles, Filter, Compass, Mic, MapPin } from 'lucide-react';
+import {
+  Search, Package, AlertTriangle, CheckSquare, FileText, Layers,
+  Compass, Mic, Brain, TrendingUp, Shield
+} from 'lucide-react';
 
 interface DashboardPageProps {
   memories: Memory[];
@@ -50,9 +53,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   onMarkRetrieved,
   onLocateOnMap,
   onShareMemory,
-  onSeedGolden,
-  onSimulateDeparture,
-  onOpenAsk,
   onNavigateToTab,
   isLoading,
 }) => {
@@ -62,203 +62,195 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     } else if (activeFilter !== 'all') {
       if (m.memory_type !== activeFilter) return false;
     }
-
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       const matchText = `${m.original_text} ${m.object || ''} ${m.location || ''} ${m.task || ''} ${m.person || ''}`.toLowerCase();
       if (!matchText.includes(q)) return false;
     }
-
     return true;
   });
 
-  const forgottenCount = memories.filter((m) => m.status === 'potentially_forgotten').length;
+  const forgottenCount  = memories.filter(m => m.status === 'potentially_forgotten').length;
+  const belongingCount  = memories.filter(m => m.memory_type === 'belonging').length;
+  const taskCount       = memories.filter(m => m.memory_type === 'task').length;
+  const documentCount   = memories.filter(m => m.memory_type === 'document').length;
+  const safetyScore     = memories.length > 0
+    ? Math.round(((memories.length - forgottenCount) / memories.length) * 100)
+    : 100;
+
+  const FILTERS: { key: string; label: string; count: number; icon: React.ReactNode; variant?: string }[] = [
+    { key: 'all',                  label: 'All',        count: memories.length,  icon: <Layers size={12} /> },
+    { key: 'potentially_forgotten', label: 'At Risk',   count: forgottenCount,   icon: <AlertTriangle size={12} />, variant: 'warning' },
+    { key: 'belonging',            label: 'Belongings', count: belongingCount,   icon: <Package size={12} /> },
+    { key: 'task',                 label: 'Tasks',      count: taskCount,        icon: <CheckSquare size={12} /> },
+    { key: 'document',             label: 'Documents',  count: documentCount,    icon: <FileText size={12} /> },
+  ];
 
   return (
-    <div style={{ animation: 'fadeIn 0.25s ease', maxWidth: '1200px', margin: '0 auto' }}>
-      {/* Proactive Departure Alert Banner (Appears only when departure triggered) */}
+    <div style={{ animation: 'fadeUp 0.3s var(--ease-out)' }}>
+      {/* Proactive Alert Toasts */}
       <ProactiveAlertBanner
         alerts={alerts}
         onDismiss={onDismissAlert}
         onMarkRetrieved={onMarkRetrieved}
       />
 
-      {/* Top Hero Grid: Left Capture Box + Right AI Safety Widget */}
+      {/* ── KPI Strip ── */}
+      <div className="kpi-grid">
+        <div className="kpi-card">
+          <div className="kpi-card-accent" style={{ background: 'linear-gradient(90deg, var(--accent), var(--info))' }} />
+          <div className="kpi-label">
+            <Brain size={12} />
+            Total Memories
+          </div>
+          <div className="kpi-value">{stats?.total_memories ?? memories.length}</div>
+          <div className="kpi-subtitle">Across all categories</div>
+        </div>
+
+        <div className="kpi-card">
+          <div className="kpi-card-accent" style={{ background: 'linear-gradient(90deg, var(--success), #059669)' }} />
+          <div className="kpi-label">
+            <Shield size={12} />
+            Safety Score
+          </div>
+          <div className="kpi-value" style={{ color: safetyScore >= 90 ? 'var(--success-text)' : safetyScore >= 70 ? 'var(--warning-text)' : 'var(--danger-text)' }}>
+            {safetyScore}<span style={{ fontSize: '1rem', fontWeight: 500, color: 'var(--text-tertiary)' }}>%</span>
+          </div>
+          <div className="kpi-subtitle">Belongings secured</div>
+        </div>
+
+        <div className="kpi-card">
+          <div className="kpi-card-accent" style={{ background: forgottenCount > 0 ? 'linear-gradient(90deg, var(--warning), var(--danger))' : 'linear-gradient(90deg, var(--success), var(--info))' }} />
+          <div className="kpi-label">
+            <AlertTriangle size={12} />
+            At Risk
+          </div>
+          <div className="kpi-value" style={{ color: forgottenCount > 0 ? 'var(--warning-text)' : 'var(--success-text)' }}>
+            {forgottenCount}
+          </div>
+          <div className="kpi-subtitle">{forgottenCount > 0 ? 'Items potentially left behind' : 'All items accounted for'}</div>
+        </div>
+
+        <div className="kpi-card">
+          <div className="kpi-card-accent" style={{ background: 'linear-gradient(90deg, var(--info), var(--accent))' }} />
+          <div className="kpi-label">
+            <TrendingUp size={12} />
+            Active Tasks
+          </div>
+          <div className="kpi-value">{stats?.pending_tasks ?? taskCount}</div>
+          <div className="kpi-subtitle">Pending completion</div>
+        </div>
+      </div>
+
+      {/* ── Top Capture + Safety Widget ── */}
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-          gap: '20px',
-          marginBottom: '28px',
-          alignItems: 'stretch',
+          gridTemplateColumns: 'minmax(0, 1fr) 320px',
+          gap: 'var(--sp-5)',
+          marginBottom: 'var(--sp-6)',
+          alignItems: 'start',
         }}
       >
-        {/* Left (Hero Capture Bar) */}
-        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-          <MemoryInput
-            onSave={onSaveMemory}
-            currentLocation={currentLocation}
-            userLatitude={userLatitude}
-            userLongitude={userLongitude}
-            prefilledText={prefilledMemoryText}
-          />
-        </div>
+        <MemoryInput
+          onSave={onSaveMemory}
+          currentLocation={currentLocation}
+          userLatitude={userLatitude}
+          userLongitude={userLongitude}
+          prefilledText={prefilledMemoryText}
+        />
 
-        {/* Right (Compact AI Safety & Spatial Zone Card) */}
-        <div
-          style={{
-            background: 'rgba(18, 24, 38, 0.75)',
-            backdropFilter: 'blur(20px)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-            borderRadius: '20px',
-            padding: '20px 24px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '16px',
-            boxShadow: '0 8px 30px rgba(0, 0, 0, 0.3)',
-          }}
-        >
-          {/* Gauge Ring */}
-          <div style={{ position: 'relative', width: '90px', height: '90px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <svg style={{ width: '100%', height: '100%', transform: 'rotate(-90deg)', position: 'absolute' }} viewBox="0 0 100 100">
-              <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="8" />
+        {/* Safety + Location Widget */}
+        <div className="safety-widget">
+          {/* Ring Gauge */}
+          <div className="safety-ring">
+            <svg
+              style={{ position: 'absolute', width: '100%', height: '100%', transform: 'rotate(-90deg)' }}
+              viewBox="0 0 100 100"
+            >
+              <circle cx="50" cy="50" r="40" fill="none" stroke="var(--border-subtle)" strokeWidth="7" />
               <circle
-                cx="50"
-                cy="50"
-                r="42"
+                cx="50" cy="50" r="40"
                 fill="none"
-                stroke="#4edea3"
-                strokeWidth="8"
-                strokeDasharray="264"
-                strokeDashoffset="5.2"
-                style={{ filter: 'drop-shadow(0 0 8px rgba(78,222,163,0.6))' }}
+                stroke={safetyScore >= 90 ? '#34d399' : safetyScore >= 70 ? '#fbbf24' : '#f87171'}
+                strokeWidth="7"
+                strokeDasharray="251"
+                strokeDashoffset={251 - (251 * safetyScore) / 100}
+                strokeLinecap="round"
+                style={{ filter: `drop-shadow(0 0 6px ${safetyScore >= 90 ? 'rgba(52,211,153,0.5)' : 'rgba(251,191,36,0.5)'})` }}
               />
             </svg>
-            <div style={{ textAlign: 'center', zIndex: 10 }}>
-              <span style={{ display: 'block', fontSize: '1.5rem', fontWeight: 900, color: '#4edea3', fontFamily: 'Plus Jakarta Sans', lineHeight: 1 }}>
-                98%
+            <div style={{ textAlign: 'center', position: 'relative', zIndex: 1 }}>
+              <span style={{ display: 'block', fontSize: '1.4rem', fontWeight: 800, letterSpacing: '-0.04em', color: safetyScore >= 90 ? 'var(--success-text)' : 'var(--warning-text)', lineHeight: 1 }}>
+                {safetyScore}%
               </span>
-              <span style={{ display: 'block', fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.08em', color: '#94a3b8', fontFamily: 'JetBrains Mono', marginTop: '2px' }}>
-                SAFETY
+              <span style={{ display: 'block', fontFamily: 'var(--font-mono)', fontSize: '0.52rem', letterSpacing: '0.1em', color: 'var(--text-tertiary)', marginTop: 2 }}>
+                SAFE
               </span>
             </div>
           </div>
 
-          {/* Context & Actions */}
-          <div style={{ flex: 1 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#4edea3' }} className="animate-pulse" />
-              <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#4edea3', fontFamily: 'JetBrains Mono', letterSpacing: '0.05em' }}>
-                AI SURVEILLANCE ACTIVE
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+              <div className="live-dot" />
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.65rem', color: 'var(--success-text)', letterSpacing: '0.08em' }}>
+                AI ACTIVE
               </span>
             </div>
-            <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#f8fafc', marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <MapPin size={14} color="#c0c1ff" />
-              <span>{currentLocation}</span>
+            <div style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ fontSize: '0.8rem' }}>📍</span>
+              <span className="truncate">{currentLocation}</span>
             </div>
-            <p style={{ fontSize: '0.78rem', color: '#94a3b8', margin: '0 0 10px' }}>
-              {forgottenCount > 0 ? `⚠️ ${forgottenCount} item(s) flagged at risk.` : 'All recorded belongings secure.'}
+            <p style={{ fontSize: '0.78rem', color: 'var(--text-tertiary)', marginBottom: 'var(--sp-3)' }}>
+              {forgottenCount > 0 ? `⚠ ${forgottenCount} item(s) flagged at risk` : 'All belongings secure'}
             </p>
-
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={() => onNavigateToTab('map')}
-                style={{ fontSize: '0.74rem', padding: '4px 10px', borderColor: 'rgba(99, 102, 241, 0.3)', color: '#c0c1ff' }}
-              >
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => onNavigateToTab('map')} style={{ fontSize: '0.75rem', padding: '4px 10px' }}>
                 <Compass size={12} />
-                <span>Radar Map</span>
+                Map
               </button>
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={() => onNavigateToTab('voice')}
-                style={{ fontSize: '0.74rem', padding: '4px 10px', borderColor: 'rgba(78, 222, 163, 0.3)', color: '#4edea3' }}
-              >
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => onNavigateToTab('voice')} style={{ fontSize: '0.75rem', padding: '4px 10px' }}>
                 <Mic size={12} />
-                <span>Live Voice</span>
+                Voice
               </button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Filter Tabs & Search Header */}
-      <div
-        style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '12px',
-          marginBottom: '20px',
-          padding: '4px 0',
-        }}
-      >
-        {/* Category Filter Pills */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-          <button
-            className={`filter-tab ${activeFilter === 'all' ? 'active' : ''}`}
-            onClick={() => setActiveFilter('all')}
-            style={{ borderRadius: '20px', padding: '6px 14px', fontSize: '0.78rem' }}
-          >
-            All ({memories.length})
-          </button>
-          <button
-            className={`filter-tab ${activeFilter === 'potentially_forgotten' ? 'active' : ''}`}
-            onClick={() => setActiveFilter('potentially_forgotten')}
-            style={{
-              borderRadius: '20px',
-              padding: '6px 14px',
-              fontSize: '0.78rem',
-              ...(forgottenCount > 0 ? { color: '#fbbf24', borderColor: 'rgba(245, 158, 11, 0.5)' } : {}),
-            }}
-          >
-            ⚠️ Forgotten ({forgottenCount})
-          </button>
-          <button
-            className={`filter-tab ${activeFilter === 'belonging' ? 'active' : ''}`}
-            onClick={() => setActiveFilter('belonging')}
-            style={{ borderRadius: '20px', padding: '6px 14px', fontSize: '0.78rem' }}
-          >
-            🔌 Belongings ({memories.filter((m) => m.memory_type === 'belonging').length})
-          </button>
-          <button
-            className={`filter-tab ${activeFilter === 'task' ? 'active' : ''}`}
-            onClick={() => setActiveFilter('task')}
-            style={{ borderRadius: '20px', padding: '6px 14px', fontSize: '0.78rem' }}
-          >
-            📝 Tasks ({memories.filter((m) => m.memory_type === 'task').length})
-          </button>
-          <button
-            className={`filter-tab ${activeFilter === 'document' ? 'active' : ''}`}
-            onClick={() => setActiveFilter('document')}
-            style={{ borderRadius: '20px', padding: '6px 14px', fontSize: '0.78rem' }}
-          >
-            📁 Documents ({memories.filter((m) => m.memory_type === 'document').length})
-          </button>
+      {/* ── Filter Strip + Search ── */}
+      <div className="filter-strip">
+        <div className="filter-tabs">
+          {FILTERS.map(({ key, label, count, icon, variant }) => (
+            <button
+              key={key}
+              type="button"
+              className={`filter-tab${activeFilter === key ? ` active${variant ? ` ${variant}` : ''}` : ''}`}
+              onClick={() => setActiveFilter(key as any)}
+            >
+              {icon}
+              <span>{label}</span>
+              <span className="filter-count">{count}</span>
+            </button>
+          ))}
         </div>
 
-        {/* Search Bar */}
-        <div className="search-bar" style={{ minWidth: '240px', maxWidth: '320px', margin: 0 }}>
-          <Search size={15} color="var(--text-muted)" />
+        <div className="search-bar">
+          <Search size={14} color="var(--text-tertiary)" />
           <input
             type="text"
             className="search-input"
-            placeholder="Search memories or items..."
+            placeholder="Search memories..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            style={{ fontSize: '0.82rem', padding: '6px 8px' }}
+            onChange={e => setSearchQuery(e.target.value)}
           />
         </div>
       </div>
 
-      {/* Memories Grid Stream */}
+      {/* ── Memory Grid ── */}
       {filteredMemories.length > 0 ? (
-        <div className="memory-grid" style={{ gap: '16px' }}>
-          {filteredMemories.map((memory) => (
+        <div className="memory-grid">
+          {filteredMemories.map(memory => (
             <MemoryCard
               key={memory.id}
               memory={memory}
@@ -270,15 +262,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           ))}
         </div>
       ) : (
-        <div className="empty-state" style={{ padding: '48px 24px', borderRadius: '20px' }}>
-          <div className="empty-icon">🧠</div>
-          <h4 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '6px' }}>
-            No memories found
-          </h4>
-          <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)' }}>
+        <div className="empty-state">
+          <span className="empty-state-icon">🧠</span>
+          <p className="empty-state-title">No memories found</p>
+          <p className="empty-state-body">
             {searchQuery
-              ? `No memories matching "${searchQuery}".`
-              : 'Speak or type what you left behind in the box above!'}
+              ? `No results for "${searchQuery}". Try a different term.`
+              : 'Speak or type what you left behind in the capture box above.'}
           </p>
         </div>
       )}
