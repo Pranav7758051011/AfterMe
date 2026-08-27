@@ -4,6 +4,10 @@ export function useSpeechToText(onTranscript: (text: string) => void) {
   const [isListening, setIsListening] = useState(false);
   const [isSupported, setIsSupported] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  
+  const onTranscriptRef = useRef(onTranscript);
+  onTranscriptRef.current = onTranscript;
+
   const recognitionRef = useRef<any>(null);
 
   useEffect(() => {
@@ -26,20 +30,24 @@ export function useSpeechToText(onTranscript: (text: string) => void) {
           for (let i = event.resultIndex; i < event.results.length; ++i) {
             fullTranscript += event.results[i][0].transcript;
           }
-          if (fullTranscript.trim()) {
-            onTranscript(fullTranscript.trim());
+          const cleanText = fullTranscript.trim();
+          if (cleanText) {
+            console.log('🎙️ [Speech Recognized]:', cleanText);
+            if (onTranscriptRef.current) {
+              onTranscriptRef.current(cleanText);
+            }
           }
           setIsListening(false);
         };
 
         recognition.onerror = (event: any) => {
-          console.warn('Speech recognition error event:', event.error);
+          console.warn('🎙️ Speech recognition event error:', event.error);
           if (event.error === 'not-allowed') {
-            setErrorMessage('Microphone access was denied. Please allow microphone permissions in your browser URL bar.');
+            setErrorMessage('Microphone access was denied. Please allow microphone permissions in your browser address bar.');
           } else if (event.error === 'no-speech') {
-            setErrorMessage('No speech detected. Please speak clearly into your mic.');
-          } else {
-            setErrorMessage(`Mic error: ${event.error}`);
+            setErrorMessage('No speech detected. Please speak closer to your mic.');
+          } else if (event.error !== 'aborted') {
+            setErrorMessage(`Mic notice: ${event.error}`);
           }
           setIsListening(false);
         };
@@ -59,7 +67,7 @@ export function useSpeechToText(onTranscript: (text: string) => void) {
         } catch {}
       }
     };
-  }, [onTranscript]);
+  }, []); // Run ONCE on mount
 
   const toggleListening = useCallback(() => {
     if (!isSupported) {
@@ -80,12 +88,12 @@ export function useSpeechToText(onTranscript: (text: string) => void) {
       try {
         recognition.start();
       } catch (err: any) {
-        console.warn('Error starting speech recognition:', err);
-        // If recognition is already started, abort and restart
         try {
           recognition.abort();
-          setTimeout(() => recognition.start(), 100);
-        } catch {}
+          setTimeout(() => recognition.start(), 150);
+        } catch (e) {
+          console.warn('Error starting speech recognition:', e);
+        }
       }
     }
   }, [isListening, isSupported]);

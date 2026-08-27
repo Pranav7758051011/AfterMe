@@ -16,7 +16,7 @@ export function useTextToSpeech() {
         const preferred = voices.find(
           (v) =>
             v.lang.startsWith('en') &&
-            (v.name.includes('Google') || v.name.includes('Natural') || v.name.includes('Samantha') || v.name.includes('Daniel'))
+            (v.name.includes('Google') || v.name.includes('Natural') || v.name.includes('Samantha') || v.name.includes('Daniel') || v.name.includes('Jenny'))
         ) || voices.find((v) => v.lang.startsWith('en')) || voices[0];
 
         selectedVoiceRef.current = preferred || null;
@@ -31,23 +31,41 @@ export function useTextToSpeech() {
     (text: string) => {
       if (!isSupported || isMuted || !text.trim()) return;
 
-      window.speechSynthesis.cancel(); // Stop any ongoing speech
+      try {
+        window.speechSynthesis.cancel(); // Stop ongoing speech
+        if (window.speechSynthesis.paused) {
+          window.speechSynthesis.resume();
+        }
 
-      // Strip markdown bold/italics for clean speech
-      const cleanText = text.replace(/\*\*/g, '').replace(/\*/g, '').replace(/`/g, '');
-      const utterance = new SpeechSynthesisUtterance(cleanText);
+        // Clean markdown symbols for clean speech audio
+        const cleanText = text
+          .replace(/\*\*/g, '')
+          .replace(/\*/g, '')
+          .replace(/`/g, '')
+          .replace(/\[.*?\]\(.*?\)/g, '')
+          .replace(/#/g, '')
+          .replace(/📍|🔌|🚨|🚗|✓|💡|⚠️/g, '');
 
-      if (selectedVoiceRef.current) {
-        utterance.voice = selectedVoiceRef.current;
+        const utterance = new SpeechSynthesisUtterance(cleanText.trim());
+
+        if (selectedVoiceRef.current) {
+          utterance.voice = selectedVoiceRef.current;
+        }
+        utterance.rate = 1.0;
+        utterance.pitch = 1.0;
+
+        utterance.onstart = () => setIsSpeaking(true);
+        utterance.onend = () => setIsSpeaking(false);
+        utterance.onerror = (e) => {
+          console.warn('TTS error event:', e);
+          setIsSpeaking(false);
+        };
+
+        window.speechSynthesis.speak(utterance);
+      } catch (err) {
+        console.warn('TTS speak error:', err);
+        setIsSpeaking(false);
       }
-      utterance.rate = 1.05;
-      utterance.pitch = 1.0;
-
-      utterance.onstart = () => setIsSpeaking(true);
-      utterance.onend = () => setIsSpeaking(false);
-      utterance.onerror = () => setIsSpeaking(false);
-
-      window.speechSynthesis.speak(utterance);
     },
     [isSupported, isMuted]
   );
