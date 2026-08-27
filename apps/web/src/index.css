@@ -34,6 +34,9 @@
   --accent-hover:    #3d5ce8;
   --accent-subtle:   rgba(79, 110, 247, 0.12);
   --accent-border:   rgba(79, 110, 247, 0.30);
+  --accent-primary:  #4F6EF7;
+  --accent-cyan:     #38bdf8;
+  --text-muted:      #94a3b8;
 
   /* Semantic */
   --success:         #059669;

@@ -1,20 +1,26 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { 
   MapPin, Navigation, Crosshair, Sparkles, Satellite, Compass, 
-  Target, Car, AlertTriangle, ShieldCheck, Layers 
+  Target, Car, AlertTriangle, ShieldCheck, Layers, Eye, Moon, Sun, Globe
 } from 'lucide-react';
 import { Memory } from '../types';
 import { KNOWN_PLACES } from './LocationSimulator';
 
-// Fix Leaflet's default icon path in bundler environments
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-});
+// Fix Leaflet's default icon path in bundler environments safely
+try {
+  if (L?.Icon?.Default?.prototype) {
+    delete (L.Icon.Default.prototype as any)._getIconUrl;
+    L.Icon.Default.mergeOptions({
+      iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+      iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+      shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+    });
+  }
+} catch (e) {
+  console.warn('Leaflet icon override error:', e);
+}
 
 export interface HighlightedLocation {
   lat: number;
@@ -39,6 +45,28 @@ interface LocationMapProps {
   onRequestFreshGPS?: () => Promise<{ lat: number; lng: number; name: string } | null>;
 }
 
+type MapTheme = 'dark' | 'voyager' | 'satellite';
+
+const TILE_PROVIDERS: Record<MapTheme, { url: string; subdomains?: string | string[]; maxZoom: number; attribution: string }> = {
+  dark: {
+    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    subdomains: 'abcd',
+    maxZoom: 20,
+    attribution: '&copy; <a href="https://carto.com/">CartoDB</a> &copy; OpenStreetMap',
+  },
+  voyager: {
+    url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+    subdomains: 'abcd',
+    maxZoom: 20,
+    attribution: '&copy; <a href="https://carto.com/">CartoDB</a> &copy; OpenStreetMap',
+  },
+  satellite: {
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    maxZoom: 19,
+    attribution: '&copy; Esri & NASA',
+  },
+};
+
 export const LocationMap: React.FC<LocationMapProps> = ({
   userLatitude,
   userLongitude,
@@ -55,12 +83,16 @@ export const LocationMap: React.FC<LocationMapProps> = ({
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
+  const tileLayerRef = useRef<L.TileLayer | null>(null);
   const userMarkerRef = useRef<L.Marker | null>(null);
   const userCircleRef = useRef<L.Circle | null>(null);
   const markersLayerRef = useRef<L.LayerGroup | null>(null);
   const geofencesLayerRef = useRef<L.LayerGroup | null>(null);
   const distanceLinesLayerRef = useRef<L.LayerGroup | null>(null);
   const highlightLayerRef = useRef<L.LayerGroup | null>(null);
+
+  const [mapTheme, setMapTheme] = useState<MapTheme>('dark');
+  const [mapReady, setMapReady] = useState(false);
 
   // Initialize Map
   useEffect(() => {
@@ -69,29 +101,38 @@ export const LocationMap: React.FC<LocationMapProps> = ({
 
     // Clean up any stale leaflet instance on the DOM node to prevent "already initialized" errors
     if (mapInstanceRef.current) {
-      mapInstanceRef.current.remove();
+      try {
+        mapInstanceRef.current.remove();
+      } catch {}
       mapInstanceRef.current = null;
     }
     try {
       (container as any)._leaflet_id = null;
     } catch {}
 
+    const validLat = Number.isFinite(userLatitude) ? userLatitude : 18.9310;
+    const validLng = Number.isFinite(userLongitude) ? userLongitude : 73.1630;
+
     const map = L.map(container, {
-      center: [userLatitude, userLongitude],
+      center: [validLat, validLng],
       zoom: 17,
       zoomControl: false,
       attributionControl: false,
+      preferCanvas: true,
     });
 
     L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-    // Free OpenStreetMap Tile Layer with full multi-subdomain CDN support
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      subdomains: ['a', 'b', 'c'],
-      maxZoom: 19,
+    // Initial Tile Layer
+    const provider = TILE_PROVIDERS[mapTheme];
+    const initialTileLayer = L.tileLayer(provider.url, {
+      subdomains: provider.subdomains || 'abc',
+      maxZoom: provider.maxZoom,
       crossOrigin: true,
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      attribution: provider.attribution,
     }).addTo(map);
+
+    tileLayerRef.current = initialTileLayer;
 
     // Layer Groups
     geofencesLayerRef.current = L.layerGroup().addTo(map);
@@ -108,18 +149,25 @@ export const LocationMap: React.FC<LocationMapProps> = ({
     });
 
     mapInstanceRef.current = map;
+    setMapReady(true);
 
-    // Invalidate map size across multiple ticks to guarantee 100% tile rendering on tab switch
+    // Invalidate map size across multiple ticks to guarantee 100% tile rendering
+    map.whenReady(() => {
+      map.invalidateSize();
+    });
+
     const t1 = setTimeout(() => map.invalidateSize(), 50);
     const t2 = setTimeout(() => map.invalidateSize(), 200);
     const t3 = setTimeout(() => map.invalidateSize(), 500);
-    const t4 = setTimeout(() => map.invalidateSize(), 1000);
+    const t4 = setTimeout(() => map.invalidateSize(), 1200);
 
     // ResizeObserver ensures map tiles resize immediately when tab becomes visible
     let resizeObserver: ResizeObserver | null = null;
     if (typeof ResizeObserver !== 'undefined') {
       resizeObserver = new ResizeObserver(() => {
-        map.invalidateSize();
+        try {
+          map.invalidateSize();
+        } catch {}
       });
       resizeObserver.observe(container);
     }
@@ -128,6 +176,7 @@ export const LocationMap: React.FC<LocationMapProps> = ({
       clearTimeout(t1);
       clearTimeout(t2);
       clearTimeout(t3);
+      clearTimeout(t4);
       if (resizeObserver) {
         resizeObserver.disconnect();
       }
@@ -135,15 +184,41 @@ export const LocationMap: React.FC<LocationMapProps> = ({
         map.remove();
       } catch {}
       mapInstanceRef.current = null;
+      setMapReady(false);
     };
   }, []);
+
+  // Handle Map Theme Changes (Dark / Voyager / Satellite)
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    if (tileLayerRef.current) {
+      try {
+        map.removeLayer(tileLayerRef.current);
+      } catch {}
+    }
+
+    const provider = TILE_PROVIDERS[mapTheme];
+    const newLayer = L.tileLayer(provider.url, {
+      subdomains: provider.subdomains || 'abc',
+      maxZoom: provider.maxZoom,
+      crossOrigin: true,
+      attribution: provider.attribution,
+    }).addTo(map);
+
+    tileLayerRef.current = newLayer;
+    setTimeout(() => map.invalidateSize(), 50);
+  }, [mapTheme]);
 
   // Update User Live GPS Pin Marker & Accuracy Radar Circle
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
 
-    const userLatLng: L.LatLngExpression = [userLatitude, userLongitude];
+    const validLat = Number.isFinite(userLatitude) ? userLatitude : 18.9310;
+    const validLng = Number.isFinite(userLongitude) ? userLongitude : 73.1630;
+    const userLatLng: L.LatLngExpression = [validLat, validLng];
 
     // Prominent High-Contrast GPS Pin HTML Icon
     const userPulseIcon = L.divIcon({
@@ -156,8 +231,8 @@ export const LocationMap: React.FC<LocationMapProps> = ({
             width: 52px;
             height: 52px;
             top: -4px;
-            background: rgba(99, 102, 241, 0.3);
-            border: 2px solid rgba(99, 102, 241, 0.8);
+            background: rgba(79, 110, 247, 0.3);
+            border: 2px solid rgba(79, 110, 247, 0.9);
             border-radius: 50%;
             animation: radarPulse 2s infinite;
             pointer-events: none;
@@ -168,17 +243,16 @@ export const LocationMap: React.FC<LocationMapProps> = ({
             position: relative;
             width: 36px;
             height: 36px;
-            background: linear-gradient(135deg, #6366f1, #4338ca);
+            background: linear-gradient(135deg, #4F6EF7, #3730a3);
             border: 3px solid #ffffff;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 0 25px rgba(99, 102, 241, 1), 0 4px 12px rgba(0,0,0,0.6);
+            box-shadow: 0 0 25px rgba(79, 110, 247, 1), 0 4px 12px rgba(0,0,0,0.6);
             z-index: 10;
             color: #ffffff;
             font-size: 16px;
-            animation: bounce 2s infinite ease-in-out;
           ">
             ${isLiveTracking ? '🛰️' : '📍'}
           </div>
@@ -189,7 +263,7 @@ export const LocationMap: React.FC<LocationMapProps> = ({
             height: 0;
             border-left: 7px solid transparent;
             border-right: 7px solid transparent;
-            border-top: 10px solid #4338ca;
+            border-top: 10px solid #3730a3;
             margin-top: -2px;
             z-index: 9;
             filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
@@ -229,14 +303,14 @@ export const LocationMap: React.FC<LocationMapProps> = ({
     const userPopupDiv = document.createElement('div');
     userPopupDiv.style.padding = '6px';
     userPopupDiv.innerHTML = `
-      <div style="display: flex; align-items: center; gap: 6px; font-weight: 800; font-size: 14px; color: #4338ca; margin-bottom: 4px;">
+      <div style="display: flex; align-items: center; gap: 6px; font-weight: 800; font-size: 14px; color: #4F6EF7; margin-bottom: 4px;">
         <span>${isLiveTracking ? '🛰️ Live GPS Active Pin' : '📍 Current Location Pin'}</span>
       </div>
       <div style="font-weight: 700; font-size: 13px; color: #0f172a; margin-bottom: 4px;">
         ${currentLocationName}
       </div>
       <div style="font-size: 11px; color: #64748b; margin-bottom: 2px;">
-        GPS: <strong>${userLatitude.toFixed(5)}, ${userLongitude.toFixed(5)}</strong>
+        GPS: <strong>${validLat.toFixed(5)}, ${validLng.toFixed(5)}</strong>
       </div>
       <div style="font-size: 11px; color: #64748b; margin-bottom: 8px;">
         Accuracy Radius: ±${userAccuracy}m
@@ -247,9 +321,9 @@ export const LocationMap: React.FC<LocationMapProps> = ({
     if (dropHandler) {
       const dropMemBtn = document.createElement('button');
       dropMemBtn.innerText = '➕ Add Memory at This GPS Spot';
-      dropMemBtn.style.cssText = 'background: linear-gradient(135deg, #6366f1, #4f46e5); color: #ffffff; border: 1px solid rgba(255,255,255,0.2); padding: 8px 12px; border-radius: 8px; font-size: 11px; font-weight: 700; cursor: pointer; width: 100%; box-shadow: 0 4px 12px rgba(99,102,241,0.5); transition: transform 0.1s ease;';
+      dropMemBtn.style.cssText = 'background: linear-gradient(135deg, #4F6EF7, #3730a3); color: #ffffff; border: 1px solid rgba(255,255,255,0.2); padding: 8px 12px; border-radius: 8px; font-size: 11px; font-weight: 700; cursor: pointer; width: 100%; box-shadow: 0 4px 12px rgba(79,110,247,0.5); transition: transform 0.1s ease;';
       dropMemBtn.onclick = () => {
-        dropHandler(currentLocationName, userLatitude, userLongitude);
+        dropHandler(currentLocationName, validLat, validLng);
         userMarkerRef.current?.closePopup();
       };
       userPopupDiv.appendChild(dropMemBtn);
@@ -264,9 +338,9 @@ export const LocationMap: React.FC<LocationMapProps> = ({
     } else {
       userCircleRef.current = L.circle(userLatLng, {
         radius: Math.max(userAccuracy, 20),
-        color: '#6366f1',
+        color: '#4F6EF7',
         weight: 1.5,
-        fillColor: '#6366f1',
+        fillColor: '#4F6EF7',
         fillOpacity: 0.12,
       }).addTo(map);
     }
@@ -274,14 +348,14 @@ export const LocationMap: React.FC<LocationMapProps> = ({
     if (!highlightedLocation) {
       try {
         const curCenter = map.getCenter();
-        const distMeters = map.distance(curCenter, [userLatitude, userLongitude]);
+        const distMeters = map.distance(curCenter, [validLat, validLng]);
         if (distMeters > 500) {
-          map.setView(userLatLng, 17);
+          map.setView(userLatLng, 17, { animate: false });
         } else {
           map.panTo(userLatLng, { animate: true });
         }
       } catch {
-        map.setView(userLatLng, 17);
+        map.setView(userLatLng, 17, { animate: false });
       }
       setTimeout(() => map.invalidateSize(), 100);
     }
@@ -299,7 +373,7 @@ export const LocationMap: React.FC<LocationMapProps> = ({
       const targetLatLng: L.LatLngExpression = [highlightedLocation.lat, highlightedLocation.lng];
 
       // 1. Glowing Target Circle Ring
-      const spotlightCircle = L.circle(targetLatLng, {
+      L.circle(targetLatLng, {
         radius: 65,
         color: '#10b981',
         weight: 3,
@@ -326,7 +400,6 @@ export const LocationMap: React.FC<LocationMapProps> = ({
               justify-content: center;
               font-size: 20px;
               color: #ffffff;
-              animation: targetPulse 1.5s infinite;
             ">
               🎯
             </div>
@@ -392,13 +465,13 @@ export const LocationMap: React.FC<LocationMapProps> = ({
     KNOWN_PLACES.forEach((place) => {
       const isCurrentPlace = currentLocationName.toLowerCase().includes(place.name.toLowerCase());
 
-      const circle = L.circle([place.lat, place.lng], {
+      L.circle([place.lat, place.lng], {
         radius: place.radius || 70,
-        color: isCurrentPlace ? '#6366f1' : 'rgba(148, 163, 184, 0.4)',
+        color: isCurrentPlace ? '#4F6EF7' : 'rgba(148, 163, 184, 0.4)',
         weight: isCurrentPlace ? 2 : 1,
         dashArray: isCurrentPlace ? undefined : '4, 4',
-        fillColor: isCurrentPlace ? '#6366f1' : '#334155',
-        fillOpacity: isCurrentPlace ? 0.12 : 0.04,
+        fillColor: isCurrentPlace ? '#4F6EF7' : '#334155',
+        fillOpacity: isCurrentPlace ? 0.15 : 0.05,
       }).addTo(geofencesLayer);
 
       const zoneIcon = L.divIcon({
@@ -406,7 +479,7 @@ export const LocationMap: React.FC<LocationMapProps> = ({
         html: `
           <div style="
             background: rgba(15, 23, 42, 0.85);
-            border: 1px solid ${isCurrentPlace ? 'rgba(99, 102, 241, 0.6)' : 'rgba(255,255,255,0.1)'};
+            border: 1px solid ${isCurrentPlace ? 'rgba(79, 110, 247, 0.6)' : 'rgba(255,255,255,0.1)'};
             color: ${isCurrentPlace ? '#a5b4fc' : '#94a3b8'};
             padding: 2px 8px;
             border-radius: 6px;
@@ -445,6 +518,9 @@ export const LocationMap: React.FC<LocationMapProps> = ({
     markersLayer.clearLayers();
     distanceLinesLayer.clearLayers();
 
+    const validUserLat = Number.isFinite(userLatitude) ? userLatitude : 18.9310;
+    const validUserLng = Number.isFinite(userLongitude) ? userLongitude : 73.1630;
+
     memories.forEach((memory) => {
       let itemLat = memory.latitude;
       let itemLng = memory.longitude;
@@ -457,7 +533,7 @@ export const LocationMap: React.FC<LocationMapProps> = ({
         }
       }
 
-      if (itemLat !== null && itemLat !== undefined && itemLng !== null && itemLng !== undefined) {
+      if (itemLat !== null && itemLat !== undefined && itemLng !== null && itemLng !== undefined && Number.isFinite(itemLat) && Number.isFinite(itemLng)) {
         const isForgotten = memory.status === 'potentially_forgotten';
         const isCritical = memory.risk_level === 'critical' || memory.risk_level === 'high';
         const isVehicle = memory.object?.toLowerCase().includes('car') || memory.object?.toLowerCase().includes('park') || memory.location?.toLowerCase().includes('park');
@@ -469,7 +545,7 @@ export const LocationMap: React.FC<LocationMapProps> = ({
             justify-content: center;
             width: 32px;
             height: 32px;
-            background: ${isForgotten ? '#ef4444' : isVehicle ? '#38bdf8' : isCritical ? '#f59e0b' : '#6366f1'};
+            background: ${isForgotten ? '#ef4444' : isVehicle ? '#38bdf8' : isCritical ? '#f59e0b' : '#4F6EF7'};
             border: 2px solid #ffffff;
             border-radius: 50%;
             box-shadow: 0 4px 12px rgba(0,0,0,0.5);
@@ -491,7 +567,7 @@ export const LocationMap: React.FC<LocationMapProps> = ({
         const memMarker = L.marker([itemLat, itemLng], { icon: itemIcon }).addTo(markersLayer);
 
         const distMeters = Math.round(
-          map.distance([userLatitude, userLongitude], [itemLat, itemLng])
+          map.distance([validUserLat, validUserLng], [itemLat, itemLng])
         );
 
         const popupContent = document.createElement('div');
@@ -500,7 +576,7 @@ export const LocationMap: React.FC<LocationMapProps> = ({
           <div style="font-weight: 700; font-size: 14px; color: #0f172a; margin-bottom: 2px;">
             ${memory.object || memory.task || memory.original_text.slice(0, 25)}
           </div>
-          <div style="display: flex; align-items: center; gap: 4px; font-size: 12px; color: #4338ca; font-weight: 600; margin-bottom: 6px;">
+          <div style="display: flex; align-items: center; gap: 4px; font-size: 12px; color: #4F6EF7; font-weight: 600; margin-bottom: 6px;">
             <span>📍 Location Name: <strong>${memory.location || 'Saved Place'}</strong></span>
           </div>
           <div style="font-size: 11px; color: #64748b; margin-bottom: 6px;">
@@ -524,7 +600,7 @@ export const LocationMap: React.FC<LocationMapProps> = ({
         memMarker.bindPopup(popupContent);
 
         if (isForgotten || isCritical) {
-          L.polyline([[userLatitude, userLongitude], [itemLat, itemLng]], {
+          L.polyline([[validUserLat, validUserLng], [itemLat, itemLng]], {
             color: isForgotten ? '#ef4444' : '#f59e0b',
             weight: 2,
             dashArray: '5, 8',
@@ -535,15 +611,15 @@ export const LocationMap: React.FC<LocationMapProps> = ({
     });
   }, [memories, currentLocationName, userLatitude, userLongitude, onSelectLocation, onMarkRetrieved]);
 
-  // Center On User action: forcefully refresh GPS, fly to user coordinates, zoom in to level 19, and open interactive GPS Pin popup!
+  // Center On User action: forcefully refresh GPS, fly to user coordinates, zoom in to level 18, and open interactive GPS Pin popup!
   const handleCenterOnUser = async () => {
-    let targetLat = userLatitude;
-    let targetLng = userLongitude;
+    let targetLat = Number.isFinite(userLatitude) ? userLatitude : 18.9310;
+    let targetLng = Number.isFinite(userLongitude) ? userLongitude : 73.1630;
 
     if (onRequestFreshGPS) {
       try {
         const fresh = await onRequestFreshGPS();
-        if (fresh) {
+        if (fresh && Number.isFinite(fresh.lat) && Number.isFinite(fresh.lng)) {
           targetLat = fresh.lat;
           targetLng = fresh.lng;
         }
@@ -558,7 +634,7 @@ export const LocationMap: React.FC<LocationMapProps> = ({
             mapInstanceRef.current.invalidateSize();
             if (userMarkerRef.current) {
               userMarkerRef.current.setLatLng([targetLat, targetLng]);
-              setTimeout(() => userMarkerRef.current?.openPopup(), 400);
+              setTimeout(() => userMarkerRef.current?.openPopup(), 300);
             }
           }
         },
@@ -574,15 +650,26 @@ export const LocationMap: React.FC<LocationMapProps> = ({
         userMarkerRef.current.setLatLng([targetLat, targetLng]);
         setTimeout(() => {
           userMarkerRef.current?.openPopup();
-        }, 400);
+        }, 300);
       }
     }
   };
 
+  const toggleNextTheme = () => {
+    setMapTheme((prev) => {
+      if (prev === 'dark') return 'voyager';
+      if (prev === 'voyager') return 'satellite';
+      return 'dark';
+    });
+  };
+
+  const validLat = Number.isFinite(userLatitude) ? userLatitude : 18.9310;
+  const validLng = Number.isFinite(userLongitude) ? userLongitude : 73.1630;
+
   return (
-    <div style={{ position: 'relative', width: '100%', height: '460px', minHeight: '460px', borderRadius: '16px', overflow: 'hidden', border: '1px solid var(--border-subtle)' }}>
+    <div style={{ position: 'relative', width: '100%', height: '480px', minHeight: '480px', borderRadius: '16px', overflow: 'hidden', border: '1px solid var(--border-subtle)', background: '#080c14' }}>
       {/* Leaflet Map Canvas */}
-      <div ref={mapContainerRef} style={{ width: '100%', height: '100%', minHeight: '460px' }} />
+      <div ref={mapContainerRef} style={{ width: '100%', height: '100%', minHeight: '480px', background: '#080c14' }} />
 
       {/* Floating Prominent Location Name Badge on Map (Top-Left) */}
       <div
@@ -591,21 +678,21 @@ export const LocationMap: React.FC<LocationMapProps> = ({
           top: '12px',
           left: '12px',
           zIndex: 1000,
-          background: 'rgba(15, 23, 42, 0.92)',
+          background: 'rgba(12, 17, 29, 0.94)',
           backdropFilter: 'blur(14px)',
-          border: '1px solid rgba(99, 102, 241, 0.4)',
+          border: '1px solid rgba(79, 110, 247, 0.4)',
           borderRadius: '10px',
           padding: '8px 14px',
           display: 'flex',
           alignItems: 'center',
           gap: '8px',
-          boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
+          boxShadow: '0 4px 16px rgba(0,0,0,0.6)',
         }}
       >
-        <MapPin size={16} color="var(--accent-primary)" />
+        <MapPin size={16} color="#4F6EF7" />
         <div>
-          <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
-            {isLiveTracking ? '🛰️ Live GPS Location' : 'Detected Location Name'}
+          <div style={{ fontSize: '0.68rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
+            {isLiveTracking ? '🛰️ Live GPS Location' : 'Detected Location'}
           </div>
           <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#f8fafc' }}>
             {currentLocationName}
@@ -657,24 +744,45 @@ export const LocationMap: React.FC<LocationMapProps> = ({
           right: '12px',
           zIndex: 1000,
           display: 'flex',
-          flexDirection: 'column',
+          alignItems: 'center',
           gap: '8px',
+          flexWrap: 'wrap',
         }}
       >
+        {/* Layer Theme Switcher */}
+        <button
+          className="btn btn-secondary btn-sm"
+          onClick={toggleNextTheme}
+          title="Switch Map Tile Layer: Dark Radar / Street / Satellite"
+          style={{
+            background: 'rgba(15, 23, 42, 0.9)',
+            borderColor: 'rgba(255,255,255,0.15)',
+            padding: '7px 12px',
+            fontSize: '0.78rem',
+            color: '#f8fafc',
+            boxShadow: '0 4px 14px rgba(0,0,0,0.5)',
+          }}
+        >
+          {mapTheme === 'dark' && <span>🌙 Dark Radar</span>}
+          {mapTheme === 'voyager' && <span>🌍 Street Map</span>}
+          {mapTheme === 'satellite' && <span>🛰️ Satellite</span>}
+        </button>
+
+        {/* Center On Me FAB */}
         <button
           className="btn btn-primary btn-sm"
           onClick={handleCenterOnUser}
           title="Center on my GPS Pin and open location card"
           style={{
-            background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+            background: 'linear-gradient(135deg, #4F6EF7, #3730a3)',
             borderColor: 'rgba(255,255,255,0.2)',
             padding: '7px 14px',
             fontSize: '0.8rem',
-            boxShadow: '0 4px 14px rgba(99, 102, 241, 0.5)',
+            boxShadow: '0 4px 14px rgba(79, 110, 247, 0.5)',
           }}
         >
           <Navigation size={14} color="#ffffff" />
-          <span>📍 Center Me & Show Pin</span>
+          <span>📍 Center Me</span>
         </button>
       </div>
 
@@ -685,9 +793,9 @@ export const LocationMap: React.FC<LocationMapProps> = ({
           bottom: '12px',
           left: '12px',
           zIndex: 1000,
-          background: 'rgba(15, 23, 42, 0.9)',
+          background: 'rgba(12, 17, 29, 0.92)',
           backdropFilter: 'blur(10px)',
-          border: '1px solid rgba(255,255,255,0.15)',
+          border: '1px solid rgba(255,255,255,0.12)',
           borderRadius: '10px',
           padding: '8px 12px',
           fontSize: '0.75rem',
@@ -699,8 +807,8 @@ export const LocationMap: React.FC<LocationMapProps> = ({
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#6366f1', border: '2px solid #ffffff', display: 'inline-block' }}></span>
-          <span>📍 <strong>Your GPS Pin</strong> ({userLatitude.toFixed(4)}, {userLongitude.toFixed(4)})</span>
+          <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#4F6EF7', border: '2px solid #ffffff', display: 'inline-block' }}></span>
+          <span>📍 <strong>Your GPS Pin</strong> ({validLat.toFixed(4)}, {validLng.toFixed(4)})</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#10b981', display: 'inline-block' }}></span>
