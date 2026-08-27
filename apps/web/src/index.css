@@ -1869,6 +1869,20 @@ body {
   z-index: 1;
 }
 
+.leaflet-tile {
+  visibility: inherit !important;
+  opacity: 1 !important;
+}
+
+.leaflet-tile-container {
+  opacity: 1 !important;
+}
+
+.leaflet-container img {
+  max-width: none !important;
+  max-height: none !important;
+}
+
 .leaflet-pane {
   z-index: 400 !important;
 }

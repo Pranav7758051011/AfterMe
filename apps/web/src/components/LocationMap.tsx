@@ -85,9 +85,11 @@ export const LocationMap: React.FC<LocationMapProps> = ({
 
     L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-    // 100% Free OpenStreetMap Tile Layer (Zero API Key required)
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    // Free OpenStreetMap Tile Layer with full multi-subdomain CDN support
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      subdomains: ['a', 'b', 'c'],
       maxZoom: 19,
+      crossOrigin: true,
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
     }).addTo(map);
 
@@ -111,6 +113,7 @@ export const LocationMap: React.FC<LocationMapProps> = ({
     const t1 = setTimeout(() => map.invalidateSize(), 50);
     const t2 = setTimeout(() => map.invalidateSize(), 200);
     const t3 = setTimeout(() => map.invalidateSize(), 500);
+    const t4 = setTimeout(() => map.invalidateSize(), 1000);
 
     // ResizeObserver ensures map tiles resize immediately when tab becomes visible
     let resizeObserver: ResizeObserver | null = null;
@@ -269,7 +272,18 @@ export const LocationMap: React.FC<LocationMapProps> = ({
     }
 
     if (!highlightedLocation) {
-      map.panTo(userLatLng, { animate: true });
+      try {
+        const curCenter = map.getCenter();
+        const distMeters = map.distance(curCenter, [userLatitude, userLongitude]);
+        if (distMeters > 500) {
+          map.setView(userLatLng, 17);
+        } else {
+          map.panTo(userLatLng, { animate: true });
+        }
+      } catch {
+        map.setView(userLatLng, 17);
+      }
+      setTimeout(() => map.invalidateSize(), 100);
     }
   }, [userLatitude, userLongitude, userAccuracy, currentLocationName, isLiveTracking, highlightedLocation, onSelectLocation]);
 
@@ -540,10 +554,11 @@ export const LocationMap: React.FC<LocationMapProps> = ({
           targetLat = pos.coords.latitude;
           targetLng = pos.coords.longitude;
           if (mapInstanceRef.current) {
-            mapInstanceRef.current.flyTo([targetLat, targetLng], 19, { animate: true, duration: 1.5 });
+            mapInstanceRef.current.setView([targetLat, targetLng], 18);
+            mapInstanceRef.current.invalidateSize();
             if (userMarkerRef.current) {
               userMarkerRef.current.setLatLng([targetLat, targetLng]);
-              setTimeout(() => userMarkerRef.current?.openPopup(), 1500);
+              setTimeout(() => userMarkerRef.current?.openPopup(), 400);
             }
           }
         },
@@ -554,12 +569,12 @@ export const LocationMap: React.FC<LocationMapProps> = ({
 
     if (mapInstanceRef.current) {
       mapInstanceRef.current.invalidateSize();
-      mapInstanceRef.current.flyTo([targetLat, targetLng], 19, { animate: true, duration: 1.5 });
+      mapInstanceRef.current.setView([targetLat, targetLng], 18);
       if (userMarkerRef.current) {
         userMarkerRef.current.setLatLng([targetLat, targetLng]);
         setTimeout(() => {
           userMarkerRef.current?.openPopup();
-        }, 1500);
+        }, 400);
       }
     }
   };
