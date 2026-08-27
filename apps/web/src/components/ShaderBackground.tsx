@@ -7,11 +7,9 @@ interface ShaderBackgroundProps {
 export const ShaderBackground: React.FC<ShaderBackgroundProps> = ({ isDark = true }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  if (!isDark) {
-    return null;
-  }
-
   useEffect(() => {
+    if (!isDark) return;
+
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -125,7 +123,7 @@ void main() {
       window.removeEventListener('mousemove', handleMouseMove);
       cancelAnimationFrame(animationId);
     };
-  }, []);
+  }, [isDark]);
 
   return (
     <div
@@ -136,7 +134,9 @@ void main() {
         height: '100vh',
         zIndex: -1,
         pointerEvents: 'none',
-        opacity: 0.85,
+        opacity: isDark ? 0.85 : 0,
+        display: isDark ? 'block' : 'none',
+        transition: 'opacity 0.3s ease',
       }}
     >
       <canvas ref={canvasRef} style={{ display: 'block', width: '100%', height: '100%' }} />
