@@ -202,7 +202,7 @@ node test-cross-platform.js
     </td>
     <td align="center" width="33%">
       <a href="https://github.com/rajdeep-r24">
-        <img src="https://avatars.githubusercontent.com/u/132717028?v=4" width="100px" style="border-radius:50%;" onerror="this.src='https://github.com/rajdeep-r24.png'" /><br />
+        <img src="https://ui-avatars.com/api/?name=Rajdeep+Rathod&background=10b981&color=fff&size=200&bold=true" width="100px" style="border-radius:50%;" /><br />
         <sub><b>Rajdeep Rathod</b></sub>
       </a>
       <br />
