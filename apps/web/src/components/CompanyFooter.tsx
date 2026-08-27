@@ -1,7 +1,6 @@
 import React from 'react';
 import { 
-  Brain, Shield, Heart, Sparkles, MapPin, 
-  Cpu, Users, Radio, Award, ExternalLink, Code2, Globe
+  Brain, Shield, Award, ExternalLink, Code2
 } from 'lucide-react';
 
 interface CompanyFooterProps {
@@ -114,6 +113,20 @@ export const CompanyFooter: React.FC<CompanyFooterProps> = ({ onNavigateToTab })
               <span>Zero-Hallucination Verified</span>
             </span>
           </div>
+
+          <div style={{ marginTop: '16px' }}>
+            <a
+              href="https://github.com/rajdeep-r24/AfterMe"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn-secondary btn-sm"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem' }}
+            >
+              <Code2 size={14} />
+              <span>GitHub Repository</span>
+              <ExternalLink size={12} style={{ opacity: 0.6 }} />
+            </a>
+          </div>
         </div>
 
         {/* Col 2: Founders & Leadership */}
@@ -136,19 +149,19 @@ export const CompanyFooter: React.FC<CompanyFooterProps> = ({ onNavigateToTab })
                   background: 'var(--bg-secondary)',
                   border: '1px solid var(--border-subtle)',
                   borderRadius: 'var(--r-md)',
-                  padding: '8px 12px',
+                  padding: '10px 14px',
                   transition: 'border-color 0.2s ease, transform 0.2s ease',
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <div
                     style={{
-                      width: '28px',
-                      height: '28px',
+                      width: '32px',
+                      height: '32px',
                       borderRadius: '50%',
                       background: founder.color,
                       color: '#ffffff',
-                      fontSize: '0.72rem',
+                      fontSize: '0.75rem',
                       fontWeight: 800,
                       display: 'flex',
                       alignItems: 'center',
@@ -159,10 +172,10 @@ export const CompanyFooter: React.FC<CompanyFooterProps> = ({ onNavigateToTab })
                     {founder.avatar}
                   </div>
                   <div>
-                    <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                       {founder.name}
                     </div>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)' }}>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>
                       {founder.role}
                     </div>
                   </div>
@@ -170,11 +183,11 @@ export const CompanyFooter: React.FC<CompanyFooterProps> = ({ onNavigateToTab })
 
                 <span
                   style={{
-                    fontSize: '0.68rem',
+                    fontSize: '0.7rem',
                     fontWeight: 600,
                     color: 'var(--accent)',
                     background: 'var(--accent-subtle)',
-                    padding: '2px 6px',
+                    padding: '3px 8px',
                     borderRadius: 'var(--r-xs)',
                   }}
                 >
@@ -182,49 +195,6 @@ export const CompanyFooter: React.FC<CompanyFooterProps> = ({ onNavigateToTab })
                 </span>
               </div>
             ))}
-          </div>
-        </div>
-
-        {/* Col 3: Core Technology & Open Source */}
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
-            <Cpu size={16} color="var(--accent-cyan)" />
-            <h4 style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 }}>
-              Engineered With
-            </h4>
-          </div>
-
-          <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-            <li style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ color: 'var(--accent-cyan)' }}>✦</span>
-              <span><strong>Google Gemini 2.5 Flash</strong> (Neural Reasoning)</span>
-            </li>
-            <li style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ color: 'var(--success)' }}>✦</span>
-              <span><strong>Firebase Firestore</strong> (Real-Time Cloud Mesh)</span>
-            </li>
-            <li style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ color: 'var(--warning)' }}>✦</span>
-              <span><strong>Geofence Defense</strong> (Sub-50m Spatial Safety)</span>
-            </li>
-            <li style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ color: 'var(--accent)' }}>✦</span>
-              <span><strong>Multimodal Vision & Speech</strong> (Photo & Audio Recall)</span>
-            </li>
-          </ul>
-
-          <div style={{ marginTop: '16px' }}>
-            <a
-              href="https://github.com/rajdeep-r24/AfterMe"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn btn-secondary btn-sm"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem' }}
-            >
-              <Code2 size={14} />
-              <span>GitHub Repository</span>
-              <ExternalLink size={12} style={{ opacity: 0.6 }} />
-            </a>
           </div>
         </div>
       </div>
