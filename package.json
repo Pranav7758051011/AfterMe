@@ -23,5 +23,8 @@
     "firebase"
   ],
   "author": "AfterMe Team",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "sharp": "^0.35.4"
+  }
 }
