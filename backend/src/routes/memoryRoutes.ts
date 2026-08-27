@@ -41,9 +41,9 @@ router.post('/', async (req: AuthenticatedRequest, res: Response) => {
       importance: extracted.importance,
       risk_level: extracted.risk_level,
       status: extracted.status,
-      image_url: image_url || extracted.image_url || null,
-      latitude: latitude !== undefined ? latitude : (extracted.latitude || null),
-      longitude: longitude !== undefined ? longitude : (extracted.longitude || null),
+      image_url: image_url || (extracted as any).image_url || null,
+      latitude: latitude !== undefined ? latitude : ((extracted as any).latitude || null),
+      longitude: longitude !== undefined ? longitude : ((extracted as any).longitude || null),
     });
 
     return res.status(201).json({

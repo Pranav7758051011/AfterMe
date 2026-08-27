@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request, Response } from 'express';
 import cors from 'cors';
 import { config } from './config';
 // Live Gemini 2.5 Flash & Firebase Active

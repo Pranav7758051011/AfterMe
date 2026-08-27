@@ -5,11 +5,16 @@
   "private": true,
   "scripts": {
     "dev": "node start-dev.js",
+    "build": "npm --prefix backend run build && npm --prefix apps/web run build",
     "backend": "npm --prefix backend run dev",
     "web": "npm --prefix apps/web run dev",
     "mobile": "npm --prefix apps/mobile start",
     "mobile:web": "npm --prefix apps/mobile run web",
-    "test": "node test-full-demo.js"
+    "test": "node test-full-demo.js",
+    "deploy": "firebase deploy",
+    "deploy:hosting": "firebase deploy --only hosting",
+    "deploy:functions": "firebase deploy --only functions",
+    "deploy:firestore": "firebase deploy --only firestore"
   },
   "keywords": [
     "gemini",
