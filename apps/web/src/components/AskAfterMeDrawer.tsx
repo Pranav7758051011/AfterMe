@@ -323,11 +323,23 @@ export const AskAfterMeDrawer: React.FC<AskAfterMeDrawerProps> = ({
             {isSttSupported && (
               <button
                 type="button"
-                className={`mic-btn ${isListening ? 'recording' : ''}`}
+                className={`mic-btn ${isListening ? 'recording mic-unmuted-glow' : 'mic-muted-glow'}`}
                 onClick={toggleListening}
-                title={isListening ? 'Stop listening' : 'Speak your question'}
+                title={isListening ? '🎙️ Mic Active (Unmuted) — Click to Mute / Send' : '🔇 Mic Muted — Click to Unmute & Speak'}
+                style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: isListening ? '0 12px' : undefined }}
               >
-                {isListening ? <MicOff size={18} /> : <Mic size={18} />}
+                {isListening ? (
+                  <>
+                    <Mic size={18} color="#ffffff" />
+                    <div className="soundwave-visualizer">
+                      <span className="soundwave-bar" />
+                      <span className="soundwave-bar" />
+                      <span className="soundwave-bar" />
+                    </div>
+                  </>
+                ) : (
+                  <MicOff size={18} color="#f87171" />
+                )}
               </button>
             )}
 

@@ -498,27 +498,45 @@ export const LocationMap: React.FC<LocationMapProps> = ({
     });
   }, [memories, currentLocationName, userLatitude, userLongitude, onSelectLocation, onMarkRetrieved]);
 
-  // Center On User action: forcefully refresh GPS, fly to user coordinates, and open interactive GPS Pin popup!
+  // Center On User action: forcefully refresh GPS, fly to user coordinates, zoom in to level 19, and open interactive GPS Pin popup!
   const handleCenterOnUser = async () => {
     let targetLat = userLatitude;
     let targetLng = userLongitude;
 
     if (onRequestFreshGPS) {
-      const fresh = await onRequestFreshGPS();
-      if (fresh) {
-        targetLat = fresh.lat;
-        targetLng = fresh.lng;
-      }
+      try {
+        const fresh = await onRequestFreshGPS();
+        if (fresh) {
+          targetLat = fresh.lat;
+          targetLng = fresh.lng;
+        }
+      } catch {}
+    } else if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          targetLat = pos.coords.latitude;
+          targetLng = pos.coords.longitude;
+          if (mapInstanceRef.current) {
+            mapInstanceRef.current.flyTo([targetLat, targetLng], 19, { animate: true, duration: 1.5 });
+            if (userMarkerRef.current) {
+              userMarkerRef.current.setLatLng([targetLat, targetLng]);
+              setTimeout(() => userMarkerRef.current?.openPopup(), 1500);
+            }
+          }
+        },
+        () => {},
+        { enableHighAccuracy: true, timeout: 8000 }
+      );
     }
 
     if (mapInstanceRef.current) {
       mapInstanceRef.current.invalidateSize();
-      mapInstanceRef.current.flyTo([targetLat, targetLng], 18, { duration: 1.2 });
+      mapInstanceRef.current.flyTo([targetLat, targetLng], 19, { animate: true, duration: 1.5 });
       if (userMarkerRef.current) {
         userMarkerRef.current.setLatLng([targetLat, targetLng]);
         setTimeout(() => {
           userMarkerRef.current?.openPopup();
-        }, 1200);
+        }, 1500);
       }
     }
   };
