@@ -11,6 +11,7 @@ import { ShareMemoryModal } from './components/ShareMemoryModal';
 import { MemoryInsightsModal } from './components/MemoryInsightsModal';
 import { LiveVoiceCallModal } from './components/LiveVoiceCallModal';
 import { ShaderBackground } from './components/ShaderBackground';
+import { CompanyFooter } from './components/CompanyFooter';
 import { HighlightedLocation } from './components/LocationMap';
 import { api, getApiUserId, setApiUser } from './services/api';
 import { Memory, ProactiveAlert, AppStats } from './types';
@@ -38,6 +39,23 @@ export const App: React.FC = () => {
   const [sharingMemory, setSharingMemory] = useState<Memory | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [prefilledMemoryText, setPrefilledMemoryText] = useState<string | undefined>(undefined);
+
+  // Dark / Light Theme
+  const [isDark, setIsDark] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('afterme-theme');
+      if (saved) return saved === 'dark';
+    } catch {}
+    return window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? true;
+  });
+
+  useEffect(() => {
+    const root = document.documentElement;
+    root.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    try { localStorage.setItem('afterme-theme', isDark ? 'dark' : 'light'); } catch {}
+  }, [isDark]);
+
+  const toggleTheme = () => setIsDark(prev => !prev);
 
   // PWA Installation prompt state
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -266,6 +284,8 @@ export const App: React.FC = () => {
         onInstallPWA={handleInstallPWA}
         canInstallPWA={Boolean(deferredPrompt)}
         isLoading={isLoading}
+        isDark={isDark}
+        onToggleTheme={toggleTheme}
       />
 
       {/* Multi-Page Views */}
@@ -331,6 +351,9 @@ export const App: React.FC = () => {
           />
         )}
       </main>
+
+      {/* Company & Founders Footer */}
+      <CompanyFooter onNavigateToTab={setActiveTab} />
 
       {/* Stitch AI Mobile/Tablet Bottom Navigation Bar */}
       <BottomNavBar activeTab={activeTab} onTabChange={setActiveTab} />

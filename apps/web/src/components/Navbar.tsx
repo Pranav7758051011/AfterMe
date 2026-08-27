@@ -2,7 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   Brain, MessageSquareQuote, Sparkles, RotateCcw, Play,
   LogIn, ShieldCheck, BarChart3, Download,
-  LayoutDashboard, Compass, Mic, ChevronDown, Zap, Search
+  LayoutDashboard, Compass, Mic, ChevronDown, Zap, Search,
+  Sun, Moon
 } from 'lucide-react';
 import { AppStats } from '../types';
 import { auth } from '../services/firebase';
@@ -23,6 +24,8 @@ interface NavbarProps {
   canInstallPWA?: boolean;
   isLoading: boolean;
   userId: string;
+  isDark: boolean;
+  onToggleTheme: () => void;
 }
 
 const NAV_ITEMS: { tab: ActivePageTab; label: string; icon: React.ReactNode }[] = [
@@ -44,6 +47,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onInstallPWA,
   canInstallPWA,
   isLoading,
+  isDark,
+  onToggleTheme,
 }) => {
   const currentUser = auth.currentUser;
   const [isPresetsOpen, setIsPresetsOpen] = useState(false);
@@ -198,6 +203,20 @@ export const Navbar: React.FC<NavbarProps> = ({
             <Download size={13} />
           </button>
         )}
+
+        {/* Theme Toggle */}
+        <button
+          type="button"
+          className="theme-toggle"
+          onClick={onToggleTheme}
+          title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+          aria-label={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+          id="theme-toggle-btn"
+        >
+          <span className="theme-toggle-icon">
+            {isDark ? <Sun size={15} /> : <Moon size={15} />}
+          </span>
+        </button>
 
         {/* Auth */}
         <button
