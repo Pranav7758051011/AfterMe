@@ -13,7 +13,7 @@ const FOUNDERS = [
     role: 'Co-Founder & Systems Lead',
     avatar: 'PB',
     color: '#4F6EF7',
-    github: 'https://github.com/rajdeep-r24/AfterMe',
+    github: 'https://github.com/Pranav7758051011',
     tag: 'Core Architecture',
   },
   {
@@ -29,7 +29,7 @@ const FOUNDERS = [
     role: 'Co-Founder & Product Lead',
     avatar: 'VS',
     color: '#a855f7',
-    github: 'https://github.com/rajdeep-r24/AfterMe',
+    github: 'https://github.com/Vedant-git-333',
     tag: 'Experience & UX',
   },
 ];
@@ -140,8 +140,11 @@ export const CompanyFooter: React.FC<CompanyFooterProps> = ({ onNavigateToTab })
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {FOUNDERS.map((founder) => (
-              <div
+              <a
                 key={founder.name}
+                href={founder.github}
+                target="_blank"
+                rel="noopener noreferrer"
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -150,7 +153,9 @@ export const CompanyFooter: React.FC<CompanyFooterProps> = ({ onNavigateToTab })
                   border: '1px solid var(--border-subtle)',
                   borderRadius: 'var(--r-md)',
                   padding: '10px 14px',
-                  transition: 'border-color 0.2s ease, transform 0.2s ease',
+                  textDecoration: 'none',
+                  transition: 'border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease',
+                  cursor: 'pointer',
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -181,19 +186,22 @@ export const CompanyFooter: React.FC<CompanyFooterProps> = ({ onNavigateToTab })
                   </div>
                 </div>
 
-                <span
-                  style={{
-                    fontSize: '0.7rem',
-                    fontWeight: 600,
-                    color: 'var(--accent)',
-                    background: 'var(--accent-subtle)',
-                    padding: '3px 8px',
-                    borderRadius: 'var(--r-xs)',
-                  }}
-                >
-                  {founder.tag}
-                </span>
-              </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span
+                    style={{
+                      fontSize: '0.7rem',
+                      fontWeight: 600,
+                      color: 'var(--accent)',
+                      background: 'var(--accent-subtle)',
+                      padding: '3px 8px',
+                      borderRadius: 'var(--r-xs)',
+                    }}
+                  >
+                    {founder.tag}
+                  </span>
+                  <ExternalLink size={12} color="var(--text-tertiary)" style={{ opacity: 0.6 }} />
+                </div>
+              </a>
             ))}
           </div>
         </div>

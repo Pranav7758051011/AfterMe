@@ -188,9 +188,10 @@ node test-cross-platform.js
 
 <div align="center">
 
-| <img src="https://github.com/github.png" width="80" style="border-radius:50%"/><br/>**Pranav Bade** | <img src="https://github.com/github.png" width="80" style="border-radius:50%"/><br/>**Rajdeep Rathod** | <img src="https://github.com/github.png" width="80" style="border-radius:50%"/><br/>**Vedant Soni** |
+| [<img src="https://github.com/Pranav7758051011.png" width="100" style="border-radius:50%; border:2px solid #4F6EF7"/><br/>**Pranav Bade**](https://github.com/Pranav7758051011) | [<img src="https://github.com/rajdeep-r24.png" width="100" style="border-radius:50%; border:2px solid #10b981"/><br/>**Rajdeep Rathod**](https://github.com/rajdeep-r24) | [<img src="https://github.com/Vedant-git-333.png" width="100" style="border-radius:50%; border:2px solid #a855f7"/><br/>**Vedant Soni**](https://github.com/Vedant-git-333) |
 | :---: | :---: | :---: |
-| 🧠 **AI Architecture & Backend Systems** | 💻 **Full-Stack & Cloud Integration** | 📱 **Mobile & Multimodal Engineering** |
+| 🧠 **Co-Founder & Systems Lead**<br/>`Core Architecture & Backend` | ⚡ **Co-Founder & AI Architect**<br/>`Spatial Intelligence & Cloud` | 🎨 **Co-Founder & Product Lead**<br/>`Mobile, Vision & UX` |
+| [![GitHub](https://img.shields.io/badge/GitHub-Pranav7758051011-181717?style=flat&logo=github)](https://github.com/Pranav7758051011) | [![GitHub](https://img.shields.io/badge/GitHub-rajdeep--r24-181717?style=flat&logo=github)](https://github.com/rajdeep-r24) | [![GitHub](https://img.shields.io/badge/GitHub-Vedant--git--333-181717?style=flat&logo=github)](https://github.com/Vedant-git-333) |
 
 </div>
 
