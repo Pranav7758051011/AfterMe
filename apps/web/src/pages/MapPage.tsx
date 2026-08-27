@@ -45,7 +45,7 @@ export const MapPage: React.FC<MapPageProps> = ({
   return (
     <div style={{ animation: 'fadeIn 0.25s ease' }}>
       {/* Page Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
         <div>
           <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#f8fafc', margin: 0 }}>
             Spatial Radar & Geofencing Map
@@ -75,10 +75,7 @@ export const MapPage: React.FC<MapPageProps> = ({
         </div>
       </div>
 
-      {/* Indoor Bluetooth Low Energy (BLE) Beacon Radar Widget */}
-      <BeaconScannerWidget />
-
-      {/* Interactive Map & Geofenced Location Simulator */}
+      {/* Primary Hero: Interactive Leaflet Map & Geofenced Departure Simulator */}
       <LocationSimulator
         currentLocation={currentLocation}
         previousLocation={previousLocation}
@@ -97,6 +94,11 @@ export const MapPage: React.FC<MapPageProps> = ({
         onAddMemoryAtLocation={onAddMemoryAtLocation}
         isLoading={isLoading}
       />
+
+      {/* Indoor Bluetooth Low Energy (BLE) Beacon Radar Widget */}
+      <div style={{ marginTop: '24px' }}>
+        <BeaconScannerWidget />
+      </div>
     </div>
   );
 };
