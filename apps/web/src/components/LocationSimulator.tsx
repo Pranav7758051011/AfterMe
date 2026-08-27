@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { MapPin, Navigation, ArrowRight, Radio, AlertTriangle, Map, Satellite, Sparkles, Footprints, Car, RotateCcw } from 'lucide-react';
 import { LocationMap } from './LocationMap';
+import { ThreeDSpatialRadar } from './ThreeDSpatialRadar';
 import { Memory } from '../types';
 
 export interface KnownPlace {
@@ -71,6 +72,7 @@ export const LocationSimulator: React.FC<LocationSimulatorProps> = ({
   isLoading,
 }) => {
   const [showMap, setShowMap] = useState(true);
+  const [viewMode, setViewMode] = useState<'3d' | '2d'>('3d');
 
   // Clean location name for display in button
   const cleanCurrentPlace = currentLocation.split('(')[0].trim() || 'Current Place';
@@ -133,8 +135,48 @@ export const LocationSimulator: React.FC<LocationSimulatorProps> = ({
           </div>
         </div>
 
-        {/* Live GPS & Map Toggle Buttons */}
+        {/* Live GPS & View Mode Switcher */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          {/* 3D vs 2D Mode Switcher */}
+          <div
+            style={{
+              display: 'inline-flex',
+              background: 'var(--bg-tertiary)',
+              borderRadius: '10px',
+              padding: '3px',
+              border: '1px solid var(--border-subtle)',
+            }}
+          >
+            <button
+              className={`btn btn-sm ${viewMode === '3d' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setViewMode('3d')}
+              style={{
+                padding: '5px 12px',
+                fontSize: '0.78rem',
+                border: 'none',
+                background: viewMode === '3d' ? 'var(--accent)' : 'transparent',
+                color: viewMode === '3d' ? '#fff' : 'var(--text-secondary)',
+              }}
+            >
+              <Satellite size={13} />
+              <span>🛰️ 3D Perspective Radar</span>
+            </button>
+            <button
+              className={`btn btn-sm ${viewMode === '2d' ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setViewMode('2d')}
+              style={{
+                padding: '5px 12px',
+                fontSize: '0.78rem',
+                border: 'none',
+                background: viewMode === '2d' ? 'var(--accent)' : 'transparent',
+                color: viewMode === '2d' ? '#fff' : 'var(--text-secondary)',
+              }}
+            >
+              <Map size={13} />
+              <span>🗺️ 2D Tactical Map</span>
+            </button>
+          </div>
+
           {onToggleLiveTracking && (
             <button
               className={`btn btn-sm ${isLiveTracking ? 'btn-primary' : 'btn-secondary'}`}
@@ -154,31 +196,47 @@ export const LocationSimulator: React.FC<LocationSimulatorProps> = ({
           <button
             className="btn btn-secondary btn-sm"
             onClick={() => setShowMap(!showMap)}
-            title="Toggle Interactive Google Map & Radar View"
+            title="Toggle Spatial View"
           >
             <Map size={14} />
-            <span>{showMap ? 'Hide Map' : 'Show Map & Radar'}</span>
+            <span>{showMap ? 'Hide Radar' : 'Show Radar'}</span>
           </button>
         </div>
       </div>
 
-      {/* Interactive Map & Radar View */}
+      {/* Interactive 3D Perspective Radar / 2D Tactical Map View */}
       {showMap && (
         <div style={{ marginTop: '14px', marginBottom: '8px', animation: 'fadeIn 0.25s ease' }}>
-          <LocationMap
-            userLatitude={userLatitude}
-            userLongitude={userLongitude}
-            userAccuracy={userAccuracy}
-            currentLocationName={currentLocation}
-            memories={memories}
-            isLiveTracking={isLiveTracking}
-            highlightedLocation={highlightedLocation}
-            onSelectLocation={handleCustomMapSelect}
-            onAddMemoryAtLocation={onAddMemoryAtLocation}
-            onMarkRetrieved={onMarkRetrieved}
-            onClearHighlight={onClearHighlight}
-            onRequestFreshGPS={onRequestFreshGPS}
-          />
+          {viewMode === '3d' ? (
+            <ThreeDSpatialRadar
+              userLatitude={userLatitude}
+              userLongitude={userLongitude}
+              userAccuracy={userAccuracy}
+              currentLocationName={currentLocation}
+              memories={memories}
+              isLiveTracking={isLiveTracking}
+              highlightedLocation={highlightedLocation}
+              onSelectLocation={handleCustomMapSelect}
+              onAddMemoryAtLocation={onAddMemoryAtLocation}
+              onMarkRetrieved={onMarkRetrieved}
+              onClearHighlight={onClearHighlight}
+            />
+          ) : (
+            <LocationMap
+              userLatitude={userLatitude}
+              userLongitude={userLongitude}
+              userAccuracy={userAccuracy}
+              currentLocationName={currentLocation}
+              memories={memories}
+              isLiveTracking={isLiveTracking}
+              highlightedLocation={highlightedLocation}
+              onSelectLocation={handleCustomMapSelect}
+              onAddMemoryAtLocation={onAddMemoryAtLocation}
+              onMarkRetrieved={onMarkRetrieved}
+              onClearHighlight={onClearHighlight}
+              onRequestFreshGPS={onRequestFreshGPS}
+            />
+          )}
         </div>
       )}
 
