@@ -186,14 +186,46 @@ node test-cross-platform.js
 
 ## 👥 The Team & Authors
 
-<div align="center">
-
-| [<img src="https://github.com/Pranav7758051011.png" width="100" style="border-radius:50%; border:2px solid #4F6EF7"/><br/>**Pranav Bade**](https://github.com/Pranav7758051011) | [<img src="https://github.com/rajdeep-r24.png" width="100" style="border-radius:50%; border:2px solid #10b981"/><br/>**Rajdeep Rathod**](https://github.com/rajdeep-r24) | [<img src="https://github.com/Vedant-git-333.png" width="100" style="border-radius:50%; border:2px solid #a855f7"/><br/>**Vedant Soni**](https://github.com/Vedant-git-333) |
-| :---: | :---: | :---: |
-| 🧠 **Co-Founder & Systems Lead**<br/>`Core Architecture & Backend` | ⚡ **Co-Founder & AI Architect**<br/>`Spatial Intelligence & Cloud` | 🎨 **Co-Founder & Product Lead**<br/>`Mobile, Vision & UX` |
-| [![GitHub](https://img.shields.io/badge/GitHub-Pranav7758051011-181717?style=flat&logo=github)](https://github.com/Pranav7758051011) | [![GitHub](https://img.shields.io/badge/GitHub-rajdeep--r24-181717?style=flat&logo=github)](https://github.com/rajdeep-r24) | [![GitHub](https://img.shields.io/badge/GitHub-Vedant--git--333-181717?style=flat&logo=github)](https://github.com/Vedant-git-333) |
-
-</div>
+<table align="center" width="100%">
+  <tr>
+    <td align="center" width="33%">
+      <a href="https://github.com/Pranav7758051011">
+        <img src="https://avatars.githubusercontent.com/u/107771746?v=4" width="100px" style="border-radius:50%;" onerror="this.src='https://github.com/Pranav7758051011.png'" /><br />
+        <sub><b>Pranav Bade</b></sub>
+      </a>
+      <br />
+      <sub>🧠 Co-Founder & Systems Lead</sub>
+      <br />
+      <sub><i>Core Architecture & Backend</i></sub>
+      <br />
+      <a href="https://github.com/Pranav7758051011"><img src="https://img.shields.io/badge/GitHub-Pranav7758051011-181717?style=flat-square&logo=github" /></a>
+    </td>
+    <td align="center" width="33%">
+      <a href="https://github.com/rajdeep-r24">
+        <img src="https://avatars.githubusercontent.com/u/132717028?v=4" width="100px" style="border-radius:50%;" onerror="this.src='https://github.com/rajdeep-r24.png'" /><br />
+        <sub><b>Rajdeep Rathod</b></sub>
+      </a>
+      <br />
+      <sub>⚡ Co-Founder & AI Architect</sub>
+      <br />
+      <sub><i>Spatial Intelligence & Cloud</i></sub>
+      <br />
+      <a href="https://github.com/rajdeep-r24"><img src="https://img.shields.io/badge/GitHub-rajdeep--r24-181717?style=flat-square&logo=github" /></a>
+    </td>
+    <td align="center" width="33%">
+      <a href="https://github.com/Vedant-git-333">
+        <img src="https://github.com/Vedant-git-333.png" width="100px" style="border-radius:50%;" /><br />
+        <sub><b>Vedant Soni</b></sub>
+      </a>
+      <br />
+      <sub>🎨 Co-Founder & Product Lead</sub>
+      <br />
+      <sub><i>Mobile, Vision & UX</i></sub>
+      <br />
+      <a href="https://github.com/Vedant-git-333"><img src="https://img.shields.io/badge/GitHub-Vedant--git--333-181717?style=flat-square&logo=github" /></a>
+    </td>
+  </tr>
+</table>
 
 ---
 
