@@ -4,7 +4,7 @@ import 'leaflet/dist/leaflet.css';
 import { 
   MapPin, Navigation, Crosshair, Sparkles, Satellite, Compass, 
   Target, Car, AlertTriangle, ShieldCheck, Layers, Eye, Moon, Sun, Globe,
-  Search, Check, Plus, RefreshCw
+  Search, Check, Plus, RefreshCw, ExternalLink
 } from 'lucide-react';
 import { Memory } from '../types';
 import { KNOWN_PLACES } from './LocationSimulator';
@@ -46,30 +46,30 @@ interface LocationMapProps {
   onRequestFreshGPS?: () => Promise<{ lat: number; lng: number; name: string } | null>;
 }
 
-export type RealMapLayer = 'streets' | 'satellite' | 'dark';
+export type RealMapLayer = 'satellite' | 'streets' | 'dark';
 
-// Ultra-Reliable Global Real-World Tile Providers (Zero API Key, 100% Uptime worldwide)
-const REAL_WORLD_TILE_LAYERS: Record<RealMapLayer, { url: string; subdomains?: string | string[]; maxZoom: number; attribution: string }> = {
-  streets: {
-    // Crisp Real-World Road & Street Map with Street Names and Building Footprints
-    url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-    subdomains: 'abcd',
-    maxZoom: 20,
-    attribution: '&copy; <a href="https://carto.com/">CartoDB</a> &copy; OpenStreetMap',
-  },
+// Ultra-Reliable Global Real-World Tile Providers (Zero API Key, 100% Global Uptime)
+const REAL_WORLD_TILE_LAYERS: Record<RealMapLayer, { url: string; subdomains?: string[]; maxZoom: number; attribution: string }> = {
   satellite: {
-    // Photorealistic Satellite Imagery with Street & Highway Overlays
-    url: 'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
+    // Photorealistic Google Hybrid Satellite Imagery with Road Overlays
+    url: 'https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
     subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
     maxZoom: 20,
-    attribution: '&copy; Google Satellite & Imagery',
+    attribution: '&copy; Google Satellite & Maps',
+  },
+  streets: {
+    // OpenStreetMap & CartoDB Real Street Map
+    url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+    subdomains: ['a', 'b', 'c', 'd'],
+    maxZoom: 20,
+    attribution: '&copy; CartoDB & OpenStreetMap',
   },
   dark: {
-    // High-Contrast Cyber Dark Matter Map
-    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-    subdomains: 'abcd',
+    // High-Contrast Dark Street Map
+    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+    subdomains: ['a', 'b', 'c', 'd'],
     maxZoom: 20,
-    attribution: '&copy; <a href="https://carto.com/">CartoDB</a> &copy; OpenStreetMap',
+    attribution: '&copy; CartoDB & OpenStreetMap',
   },
 };
 
@@ -78,7 +78,7 @@ export const LocationMap: React.FC<LocationMapProps> = ({
   userLongitude,
   userAccuracy = 15,
   currentLocationName,
-  memories,
+  memories = [],
   isLiveTracking,
   highlightedLocation,
   onSelectLocation,
@@ -97,10 +97,10 @@ export const LocationMap: React.FC<LocationMapProps> = ({
   const distanceLinesLayerRef = useRef<L.LayerGroup | null>(null);
   const highlightLayerRef = useRef<L.LayerGroup | null>(null);
 
-  const [activeLayer, setActiveLayer] = useState<RealMapLayer>('streets');
+  const [activeLayer, setActiveLayer] = useState<RealMapLayer>('satellite');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
-  const [zoomLevel, setZoomLevel] = useState(17);
+  const [mapError, setMapError] = useState<string | null>(null);
 
   const validLat = Number.isFinite(userLatitude) && userLatitude !== 0 ? userLatitude : 18.9309;
   const validLng = Number.isFinite(userLongitude) && userLongitude !== 0 ? userLongitude : 73.1631;
@@ -110,91 +110,91 @@ export const LocationMap: React.FC<LocationMapProps> = ({
     const container = mapContainerRef.current;
     if (!container) return;
 
-    // Clean up stale instances
-    if (mapInstanceRef.current) {
-      try {
-        mapInstanceRef.current.remove();
-      } catch {}
-      mapInstanceRef.current = null;
-    }
     try {
-      (container as any)._leaflet_id = null;
-    } catch {}
-
-    const map = L.map(container, {
-      center: [validLat, validLng],
-      zoom: 17,
-      zoomControl: false,
-      attributionControl: false,
-      preferCanvas: true,
-    });
-
-    L.control.zoom({ position: 'bottomright' }).addTo(map);
-
-    // Add Real-World Tile Layer
-    const layerConfig = REAL_WORLD_TILE_LAYERS[activeLayer];
-    const initialLayer = L.tileLayer(layerConfig.url, {
-      subdomains: layerConfig.subdomains || 'abc',
-      maxZoom: layerConfig.maxZoom,
-      crossOrigin: true,
-      attribution: layerConfig.attribution,
-    }).addTo(map);
-
-    tileLayerRef.current = initialLayer;
-
-    // Layer Groups
-    geofencesLayerRef.current = L.layerGroup().addTo(map);
-    distanceLinesLayerRef.current = L.layerGroup().addTo(map);
-    markersLayerRef.current = L.layerGroup().addTo(map);
-    highlightLayerRef.current = L.layerGroup().addTo(map);
-
-    // Click handler to select real GPS coordinate on street map
-    map.on('click', (e: L.LeafletMouseEvent) => {
-      if (onSelectLocation) {
-        const { lat, lng } = e.latlng;
-        onSelectLocation(`Real GPS (${lat.toFixed(4)}, ${lng.toFixed(4)})`, lat, lng);
-      }
-    });
-
-    map.on('zoomend', () => {
-      setZoomLevel(map.getZoom());
-    });
-
-    mapInstanceRef.current = map;
-
-    // Invalidate map size across multiple frames to guarantee 100% tile loading
-    map.whenReady(() => {
-      map.invalidateSize();
-    });
-
-    const t1 = setTimeout(() => map.invalidateSize(), 50);
-    const t2 = setTimeout(() => map.invalidateSize(), 200);
-    const t3 = setTimeout(() => map.invalidateSize(), 600);
-    const t4 = setTimeout(() => map.invalidateSize(), 1200);
-
-    let resizeObserver: ResizeObserver | null = null;
-    if (typeof ResizeObserver !== 'undefined') {
-      resizeObserver = new ResizeObserver(() => {
+      if (mapInstanceRef.current) {
         try {
-          map.invalidateSize();
+          mapInstanceRef.current.remove();
         } catch {}
-      });
-      resizeObserver.observe(container);
-    }
-
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-      clearTimeout(t3);
-      clearTimeout(t4);
-      if (resizeObserver) {
-        resizeObserver.disconnect();
+        mapInstanceRef.current = null;
       }
       try {
-        map.remove();
+        (container as any)._leaflet_id = null;
       } catch {}
-      mapInstanceRef.current = null;
-    };
+
+      const map = L.map(container, {
+        center: [validLat, validLng],
+        zoom: 17,
+        zoomControl: false,
+        attributionControl: false,
+      });
+
+      L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+      // Add Real-World Satellite Hybrid Tile Layer by Default
+      const layerConfig = REAL_WORLD_TILE_LAYERS[activeLayer];
+      const initialLayer = L.tileLayer(layerConfig.url, {
+        subdomains: layerConfig.subdomains,
+        maxZoom: layerConfig.maxZoom,
+        crossOrigin: true,
+        attribution: layerConfig.attribution,
+      }).addTo(map);
+
+      tileLayerRef.current = initialLayer;
+
+      // Layer Groups
+      geofencesLayerRef.current = L.layerGroup().addTo(map);
+      distanceLinesLayerRef.current = L.layerGroup().addTo(map);
+      markersLayerRef.current = L.layerGroup().addTo(map);
+      highlightLayerRef.current = L.layerGroup().addTo(map);
+
+      // Click handler to select real GPS coordinate on street map
+      map.on('click', (e: L.LeafletMouseEvent) => {
+        if (onSelectLocation) {
+          const { lat, lng } = e.latlng;
+          onSelectLocation(`Real GPS (${lat.toFixed(4)}, ${lng.toFixed(4)})`, lat, lng);
+        }
+      });
+
+      mapInstanceRef.current = map;
+      setMapError(null);
+
+      // Invalidate map size across multiple frames
+      map.whenReady(() => {
+        map.invalidateSize();
+      });
+
+      const t1 = setTimeout(() => map.invalidateSize(), 30);
+      const t2 = setTimeout(() => map.invalidateSize(), 150);
+      const t3 = setTimeout(() => map.invalidateSize(), 500);
+      const t4 = setTimeout(() => map.invalidateSize(), 1200);
+
+      let resizeObserver: ResizeObserver | null = null;
+      if (typeof ResizeObserver !== 'undefined') {
+        resizeObserver = new ResizeObserver(() => {
+          try {
+            map.invalidateSize();
+          } catch {}
+        });
+        resizeObserver.observe(container);
+      }
+
+      return () => {
+        clearTimeout(t1);
+        clearTimeout(t2);
+        clearTimeout(t3);
+        clearTimeout(t4);
+        if (resizeObserver) {
+          resizeObserver.disconnect();
+        }
+        try {
+          map.remove();
+        } catch {}
+        mapInstanceRef.current = null;
+      };
+    } catch (err: any) {
+      console.error('Leaflet map creation failed:', err);
+      setMapError(err?.message || 'Failed to initialize map');
+    }
   }, []);
 
   // Update Real-World Tile Layer when user switches Streets / Satellite / Dark
@@ -202,22 +202,26 @@ export const LocationMap: React.FC<LocationMapProps> = ({
     const map = mapInstanceRef.current;
     if (!map) return;
 
-    if (tileLayerRef.current) {
-      try {
-        map.removeLayer(tileLayerRef.current);
-      } catch {}
+    try {
+      if (tileLayerRef.current) {
+        try {
+          map.removeLayer(tileLayerRef.current);
+        } catch {}
+      }
+
+      const layerConfig = REAL_WORLD_TILE_LAYERS[activeLayer];
+      const newLayer = L.tileLayer(layerConfig.url, {
+        subdomains: layerConfig.subdomains,
+        maxZoom: layerConfig.maxZoom,
+        crossOrigin: true,
+        attribution: layerConfig.attribution,
+      }).addTo(map);
+
+      tileLayerRef.current = newLayer;
+      setTimeout(() => map.invalidateSize(), 50);
+    } catch (e) {
+      console.error('Failed to change tile layer:', e);
     }
-
-    const layerConfig = REAL_WORLD_TILE_LAYERS[activeLayer];
-    const newLayer = L.tileLayer(layerConfig.url, {
-      subdomains: layerConfig.subdomains || 'abc',
-      maxZoom: layerConfig.maxZoom,
-      crossOrigin: true,
-      attribution: layerConfig.attribution,
-    }).addTo(map);
-
-    tileLayerRef.current = newLayer;
-    setTimeout(() => map.invalidateSize(), 50);
   }, [activeLayer]);
 
   // Update User Live GPS Marker on Real World Map
@@ -225,145 +229,149 @@ export const LocationMap: React.FC<LocationMapProps> = ({
     const map = mapInstanceRef.current;
     if (!map) return;
 
-    const userLatLng: L.LatLngExpression = [validLat, validLng];
+    try {
+      const userLatLng: L.LatLngExpression = [validLat, validLng];
 
-    // High-Contrast High-Accuracy GPS Pin
-    const userPulseIcon = L.divIcon({
-      className: 'custom-user-gps-pin',
-      html: `
-        <div style="position: relative; width: 46px; height: 56px; display: flex; flex-direction: column; align-items: center;">
-          <!-- Glowing Animated Radar Pulse -->
-          <div style="
-            position: absolute;
-            width: 54px;
-            height: 54px;
-            top: -4px;
-            background: rgba(79, 110, 247, 0.35);
-            border: 2px solid rgba(79, 110, 247, 0.9);
-            border-radius: 50%;
-            animation: radarPulse 2s infinite;
-            pointer-events: none;
-          "></div>
+      // High-Contrast High-Accuracy GPS Pin
+      const userPulseIcon = L.divIcon({
+        className: 'custom-user-gps-pin',
+        html: `
+          <div style="position: relative; width: 46px; height: 56px; display: flex; flex-direction: column; align-items: center;">
+            <!-- Glowing Animated Radar Pulse -->
+            <div style="
+              position: absolute;
+              width: 54px;
+              height: 54px;
+              top: -4px;
+              background: rgba(79, 110, 247, 0.35);
+              border: 2px solid rgba(79, 110, 247, 0.9);
+              border-radius: 50%;
+              animation: radarPulse 2s infinite;
+              pointer-events: none;
+            "></div>
 
-          <!-- Pin Head with Live Icon -->
-          <div style="
-            position: relative;
-            width: 38px;
-            height: 38px;
-            background: linear-gradient(135deg, #4F6EF7, #2563eb);
-            border: 3px solid #ffffff;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 0 25px rgba(79, 110, 247, 1), 0 4px 14px rgba(0,0,0,0.6);
-            z-index: 10;
-            color: #ffffff;
-            font-size: 16px;
-          ">
-            ${isLiveTracking ? '🛰️' : '📍'}
+            <!-- Pin Head with Live Icon -->
+            <div style="
+              position: relative;
+              width: 38px;
+              height: 38px;
+              background: linear-gradient(135deg, #4F6EF7, #2563eb);
+              border: 3px solid #ffffff;
+              border-radius: 50%;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              box-shadow: 0 0 25px rgba(79, 110, 247, 1), 0 4px 14px rgba(0,0,0,0.6);
+              z-index: 10;
+              color: #ffffff;
+              font-size: 16px;
+            ">
+              ${isLiveTracking ? '🛰️' : '📍'}
+            </div>
+
+            <!-- Pin Needle -->
+            <div style="
+              width: 0;
+              height: 0;
+              border-left: 7px solid transparent;
+              border-right: 7px solid transparent;
+              border-top: 10px solid #2563eb;
+              margin-top: -2px;
+              z-index: 9;
+              filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+            "></div>
+
+            <!-- Shadow -->
+            <div style="
+              width: 12px;
+              height: 6px;
+              background: rgba(0, 0, 0, 0.7);
+              border-radius: 50%;
+              margin-top: 1px;
+            "></div>
           </div>
-
-          <!-- Pin Needle -->
-          <div style="
-            width: 0;
-            height: 0;
-            border-left: 7px solid transparent;
-            border-right: 7px solid transparent;
-            border-top: 10px solid #2563eb;
-            margin-top: -2px;
-            z-index: 9;
-            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
-          "></div>
-
-          <!-- Shadow -->
-          <div style="
-            width: 12px;
-            height: 6px;
-            background: rgba(0, 0, 0, 0.7);
-            border-radius: 50%;
-            margin-top: 1px;
-          "></div>
-        </div>
-      `,
-      iconSize: [46, 56],
-      iconAnchor: [23, 48],
-      popupAnchor: [0, -48],
-    });
-
-    if (userMarkerRef.current) {
-      userMarkerRef.current.setLatLng(userLatLng);
-      userMarkerRef.current.setIcon(userPulseIcon);
-      userMarkerRef.current.setTooltipContent(`📍 ${isLiveTracking ? 'Live GPS: ' : 'You are at: '} ${currentLocationName}`);
-    } else {
-      userMarkerRef.current = L.marker(userLatLng, { icon: userPulseIcon, zIndexOffset: 1500 }).addTo(map);
-      userMarkerRef.current.bindTooltip(`📍 ${isLiveTracking ? 'Live GPS: ' : 'You are at: '} ${currentLocationName}`, {
-        permanent: true,
-        direction: 'top',
-        className: 'user-location-tooltip',
-        offset: [0, -48],
+        `,
+        iconSize: [46, 56],
+        iconAnchor: [23, 48],
+        popupAnchor: [0, -48],
       });
-    }
 
-    // Rich Real-World Location Popup
-    const userPopupDiv = document.createElement('div');
-    userPopupDiv.style.padding = '6px';
-    userPopupDiv.innerHTML = `
-      <div style="display: flex; align-items: center; gap: 6px; font-weight: 800; font-size: 14px; color: #4F6EF7; margin-bottom: 4px;">
-        <span>${isLiveTracking ? '🛰️ Real-Time GPS Signal' : '📍 Current Pinpoint Location'}</span>
-      </div>
-      <div style="font-weight: 700; font-size: 13px; color: #0f172a; margin-bottom: 4px;">
-        ${currentLocationName}
-      </div>
-      <div style="font-size: 11px; color: #64748b; margin-bottom: 2px;">
-        Real GPS: <strong>${validLat.toFixed(5)}, ${validLng.toFixed(5)}</strong>
-      </div>
-      <div style="font-size: 11px; color: #64748b; margin-bottom: 8px;">
-        Accuracy Radius: ±${userAccuracy}m
-      </div>
-    `;
-
-    const dropHandler = onAddMemoryAtLocation || onSelectLocation;
-    if (dropHandler) {
-      const dropMemBtn = document.createElement('button');
-      dropMemBtn.innerText = '➕ Save Memory at This Real Spot';
-      dropMemBtn.style.cssText = 'background: linear-gradient(135deg, #4F6EF7, #2563eb); color: #ffffff; border: 1px solid rgba(255,255,255,0.2); padding: 8px 12px; border-radius: 8px; font-size: 11px; font-weight: 700; cursor: pointer; width: 100%; box-shadow: 0 4px 12px rgba(79,110,247,0.5);';
-      dropMemBtn.onclick = () => {
-        dropHandler(currentLocationName, validLat, validLng);
-        userMarkerRef.current?.closePopup();
-      };
-      userPopupDiv.appendChild(dropMemBtn);
-    }
-
-    userMarkerRef.current.bindPopup(userPopupDiv);
-
-    // Accuracy Circle
-    if (userCircleRef.current) {
-      userCircleRef.current.setLatLng(userLatLng);
-      userCircleRef.current.setRadius(Math.max(userAccuracy, 20));
-    } else {
-      userCircleRef.current = L.circle(userLatLng, {
-        radius: Math.max(userAccuracy, 20),
-        color: '#4F6EF7',
-        weight: 1.5,
-        fillColor: '#4F6EF7',
-        fillOpacity: 0.12,
-      }).addTo(map);
-    }
-
-    if (!highlightedLocation) {
-      try {
-        const curCenter = map.getCenter();
-        const distMeters = map.distance(curCenter, [validLat, validLng]);
-        if (distMeters > 500) {
-          map.setView(userLatLng, 17, { animate: false });
-        } else {
-          map.panTo(userLatLng, { animate: true });
-        }
-      } catch {
-        map.setView(userLatLng, 17, { animate: false });
+      if (userMarkerRef.current) {
+        userMarkerRef.current.setLatLng(userLatLng);
+        userMarkerRef.current.setIcon(userPulseIcon);
+        userMarkerRef.current.setTooltipContent(`📍 ${isLiveTracking ? 'Live GPS: ' : 'You are at: '} ${currentLocationName}`);
+      } else {
+        userMarkerRef.current = L.marker(userLatLng, { icon: userPulseIcon, zIndexOffset: 1500 }).addTo(map);
+        userMarkerRef.current.bindTooltip(`📍 ${isLiveTracking ? 'Live GPS: ' : 'You are at: '} ${currentLocationName}`, {
+          permanent: true,
+          direction: 'top',
+          className: 'user-location-tooltip',
+          offset: [0, -48],
+        });
       }
-      setTimeout(() => map.invalidateSize(), 100);
+
+      // Rich Real-World Location Popup
+      const userPopupDiv = document.createElement('div');
+      userPopupDiv.style.padding = '6px';
+      userPopupDiv.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 6px; font-weight: 800; font-size: 14px; color: #4F6EF7; margin-bottom: 4px;">
+          <span>${isLiveTracking ? '🛰️ Real-Time GPS Signal' : '📍 Current Location Pin'}</span>
+        </div>
+        <div style="font-weight: 700; font-size: 13px; color: #0f172a; margin-bottom: 4px;">
+          ${currentLocationName}
+        </div>
+        <div style="font-size: 11px; color: #64748b; margin-bottom: 2px;">
+          Real GPS: <strong>${validLat.toFixed(5)}, ${validLng.toFixed(5)}</strong>
+        </div>
+        <div style="font-size: 11px; color: #64748b; margin-bottom: 8px;">
+          Accuracy Radius: ±${userAccuracy}m
+        </div>
+      `;
+
+      const dropHandler = onAddMemoryAtLocation || onSelectLocation;
+      if (dropHandler) {
+        const dropMemBtn = document.createElement('button');
+        dropMemBtn.innerText = '➕ Save Memory at This Real Spot';
+        dropMemBtn.style.cssText = 'background: linear-gradient(135deg, #4F6EF7, #2563eb); color: #ffffff; border: 1px solid rgba(255,255,255,0.2); padding: 8px 12px; border-radius: 8px; font-size: 11px; font-weight: 700; cursor: pointer; width: 100%; box-shadow: 0 4px 12px rgba(79,110,247,0.5);';
+        dropMemBtn.onclick = () => {
+          dropHandler(currentLocationName, validLat, validLng);
+          userMarkerRef.current?.closePopup();
+        };
+        userPopupDiv.appendChild(dropMemBtn);
+      }
+
+      userMarkerRef.current.bindPopup(userPopupDiv);
+
+      // Accuracy Circle
+      if (userCircleRef.current) {
+        userCircleRef.current.setLatLng(userLatLng);
+        userCircleRef.current.setRadius(Math.max(userAccuracy, 20));
+      } else {
+        userCircleRef.current = L.circle(userLatLng, {
+          radius: Math.max(userAccuracy, 20),
+          color: '#4F6EF7',
+          weight: 1.5,
+          fillColor: '#4F6EF7',
+          fillOpacity: 0.12,
+        }).addTo(map);
+      }
+
+      if (!highlightedLocation) {
+        try {
+          const curCenter = map.getCenter();
+          const distMeters = map.distance(curCenter, [validLat, validLng]);
+          if (distMeters > 500) {
+            map.setView(userLatLng, 17, { animate: false });
+          } else {
+            map.panTo(userLatLng, { animate: true });
+          }
+        } catch {
+          map.setView(userLatLng, 17, { animate: false });
+        }
+        setTimeout(() => map.invalidateSize(), 100);
+      }
+    } catch (e) {
+      console.error('Error updating user marker on map:', e);
     }
   }, [userLatitude, userLongitude, userAccuracy, currentLocationName, isLiveTracking, highlightedLocation, onSelectLocation]);
 
@@ -374,97 +382,101 @@ export const LocationMap: React.FC<LocationMapProps> = ({
     const distanceLinesLayer = distanceLinesLayerRef.current;
     if (!map || !markersLayer || !distanceLinesLayer) return;
 
-    markersLayer.clearLayers();
-    distanceLinesLayer.clearLayers();
+    try {
+      markersLayer.clearLayers();
+      distanceLinesLayer.clearLayers();
 
-    memories.forEach((memory) => {
-      let itemLat = memory.latitude;
-      let itemLng = memory.longitude;
+      (memories || []).forEach((memory) => {
+        let itemLat = memory.latitude;
+        let itemLng = memory.longitude;
 
-      if ((itemLat === null || itemLat === undefined) && memory.location) {
-        const match = KNOWN_PLACES.find((p) => memory.location?.toLowerCase().includes(p.name.toLowerCase()));
-        if (match) {
-          itemLat = match.lat;
-          itemLng = match.lng;
+        if ((itemLat === null || itemLat === undefined) && memory.location) {
+          const match = KNOWN_PLACES.find((p) => memory.location?.toLowerCase().includes(p.name.toLowerCase()));
+          if (match) {
+            itemLat = match.lat;
+            itemLng = match.lng;
+          }
         }
-      }
 
-      if (itemLat !== null && itemLat !== undefined && itemLng !== null && itemLng !== undefined && Number.isFinite(itemLat) && Number.isFinite(itemLng)) {
-        const isForgotten = memory.status === 'potentially_forgotten';
-        const isCritical = memory.risk_level === 'critical' || memory.risk_level === 'high';
-        const isVehicle = memory.object?.toLowerCase().includes('car') || memory.object?.toLowerCase().includes('park') || memory.location?.toLowerCase().includes('park');
+        if (itemLat !== null && itemLat !== undefined && itemLng !== null && itemLng !== undefined && Number.isFinite(itemLat) && Number.isFinite(itemLng)) {
+          const isForgotten = memory.status === 'potentially_forgotten';
+          const isCritical = memory.risk_level === 'critical' || memory.risk_level === 'high';
+          const isVehicle = memory.object?.toLowerCase().includes('car') || memory.object?.toLowerCase().includes('park') || memory.location?.toLowerCase().includes('park');
 
-        const markerHtml = `
-          <div style="
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 34px;
-            height: 34px;
-            background: ${isForgotten ? '#ef4444' : isVehicle ? '#0284c7' : isCritical ? '#f59e0b' : '#4F6EF7'};
-            border: 2px solid #ffffff;
-            border-radius: 50%;
-            box-shadow: 0 4px 14px rgba(0,0,0,0.5);
-            font-size: 15px;
-            color: #ffffff;
-            animation: ${isForgotten ? 'bounce 1s infinite' : 'none'};
-          ">
-            ${isVehicle ? '🚗' : memory.memory_type === 'belonging' ? '🔌' : memory.memory_type === 'document' ? '📁' : '📝'}
-          </div>
-        `;
+          const markerHtml = `
+            <div style="
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              width: 34px;
+              height: 34px;
+              background: ${isForgotten ? '#ef4444' : isVehicle ? '#0284c7' : isCritical ? '#f59e0b' : '#4F6EF7'};
+              border: 2px solid #ffffff;
+              border-radius: 50%;
+              box-shadow: 0 4px 14px rgba(0,0,0,0.5);
+              font-size: 15px;
+              color: #ffffff;
+              animation: ${isForgotten ? 'bounce 1s infinite' : 'none'};
+            ">
+              ${isVehicle ? '🚗' : memory.memory_type === 'belonging' ? '🔌' : memory.memory_type === 'document' ? '📁' : '📝'}
+            </div>
+          `;
 
-        const itemIcon = L.divIcon({
-          className: 'custom-memory-pin',
-          html: markerHtml,
-          iconSize: [34, 34],
-          iconAnchor: [17, 17],
-        });
+          const itemIcon = L.divIcon({
+            className: 'custom-memory-pin',
+            html: markerHtml,
+            iconSize: [34, 34],
+            iconAnchor: [17, 17],
+          });
 
-        const memMarker = L.marker([itemLat, itemLng], { icon: itemIcon }).addTo(markersLayer);
+          const memMarker = L.marker([itemLat, itemLng], { icon: itemIcon }).addTo(markersLayer);
 
-        const distMeters = Math.round(
-          map.distance([validLat, validLng], [itemLat, itemLng])
-        );
+          const distMeters = Math.round(
+            map.distance([validLat, validLng], [itemLat, itemLng])
+          );
 
-        const popupContent = document.createElement('div');
-        popupContent.style.padding = '4px';
-        popupContent.innerHTML = `
-          <div style="font-weight: 700; font-size: 14px; color: #0f172a; margin-bottom: 2px;">
-            ${memory.object || memory.task || memory.original_text.slice(0, 25)}
-          </div>
-          <div style="display: flex; align-items: center; gap: 4px; font-size: 12px; color: #4F6EF7; font-weight: 600; margin-bottom: 6px;">
-            <span>📍 Real Spot: <strong>${memory.location || 'Saved Location'}</strong></span>
-          </div>
-          <div style="font-size: 11px; color: #64748b; margin-bottom: 6px;">
-            Distance: <strong>${distMeters} meters from you</strong>
-          </div>
-          <div style="font-size: 11px; color: #475569; font-style: italic; margin-bottom: 8px;">
-            "${memory.original_text}"
-          </div>
-          ${isForgotten ? '<div style="color: #dc2626; font-weight: 700; font-size: 11px; margin-bottom: 8px;">⚠️ Left behind at this location!</div>' : ''}
-        `;
+          const popupContent = document.createElement('div');
+          popupContent.style.padding = '4px';
+          popupContent.innerHTML = `
+            <div style="font-weight: 700; font-size: 14px; color: #0f172a; margin-bottom: 2px;">
+              ${memory.object || memory.task || memory.original_text.slice(0, 25)}
+            </div>
+            <div style="display: flex; align-items: center; gap: 4px; font-size: 12px; color: #4F6EF7; font-weight: 600; margin-bottom: 6px;">
+              <span>📍 Real Spot: <strong>${memory.location || 'Saved Location'}</strong></span>
+            </div>
+            <div style="font-size: 11px; color: #64748b; margin-bottom: 6px;">
+              Distance: <strong>${distMeters} meters from you</strong>
+            </div>
+            <div style="font-size: 11px; color: #475569; font-style: italic; margin-bottom: 8px;">
+              "${memory.original_text}"
+            </div>
+            ${isForgotten ? '<div style="color: #dc2626; font-weight: 700; font-size: 11px; margin-bottom: 8px;">⚠️ Left behind at this location!</div>' : ''}
+          `;
 
-        const retrieveBtn = document.createElement('button');
-        retrieveBtn.innerText = '✓ Mark Retrieved';
-        retrieveBtn.style.cssText = 'background: #10b981; color: #fff; border: none; padding: 6px 12px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; width: 100%;';
-        retrieveBtn.onclick = () => {
-          if (onMarkRetrieved) onMarkRetrieved(memory.id);
-          memMarker.closePopup();
-        };
-        popupContent.appendChild(retrieveBtn);
+          const retrieveBtn = document.createElement('button');
+          retrieveBtn.innerText = '✓ Mark Retrieved';
+          retrieveBtn.style.cssText = 'background: #10b981; color: #fff; border: none; padding: 6px 12px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; width: 100%;';
+          retrieveBtn.onclick = () => {
+            if (onMarkRetrieved) onMarkRetrieved(memory.id);
+            memMarker.closePopup();
+          };
+          popupContent.appendChild(retrieveBtn);
 
-        memMarker.bindPopup(popupContent);
+          memMarker.bindPopup(popupContent);
 
-        if (isForgotten || isCritical) {
-          L.polyline([[validLat, validLng], [itemLat, itemLng]], {
-            color: isForgotten ? '#ef4444' : '#f59e0b',
-            weight: 2.5,
-            dashArray: '6, 8',
-            opacity: 0.85,
-          }).addTo(distanceLinesLayer);
+          if (isForgotten || isCritical) {
+            L.polyline([[validLat, validLng], [itemLat, itemLng]], {
+              color: isForgotten ? '#ef4444' : '#f59e0b',
+              weight: 2.5,
+              dashArray: '6, 8',
+              opacity: 0.85,
+            }).addTo(distanceLinesLayer);
+          }
         }
-      }
-    });
+      });
+    } catch (e) {
+      console.error('Error adding memory markers to map:', e);
+    }
   }, [memories, currentLocationName, userLatitude, userLongitude, onSelectLocation, onMarkRetrieved]);
 
   // Center On User action: forcefully refresh GPS, zoom to street level 18
@@ -543,6 +555,13 @@ export const LocationMap: React.FC<LocationMapProps> = ({
       {/* Real-World Leaflet Map Canvas */}
       <div ref={mapContainerRef} style={{ width: '100%', height: '100%', minHeight: '520px', background: '#080c14' }} />
 
+      {/* Fallback Error message if any */}
+      {mapError && (
+        <div style={{ position: 'absolute', top: 60, left: 20, zIndex: 2000, background: 'rgba(239, 68, 68, 0.9)', color: '#fff', padding: '8px 12px', borderRadius: '8px', fontSize: '0.8rem' }}>
+          Map Notice: {mapError}
+        </div>
+      )}
+
       {/* Real-World Address & GPS Badge (Top-Left) */}
       <div
         style={{
@@ -596,7 +615,7 @@ export const LocationMap: React.FC<LocationMapProps> = ({
         <Search size={14} color="#94a3b8" style={{ marginRight: '8px' }} />
         <input
           type="text"
-          placeholder="Search any real street or city..."
+          placeholder="Search real street, city, landmark..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           style={{
@@ -645,21 +664,21 @@ export const LocationMap: React.FC<LocationMapProps> = ({
         >
           <button
             type="button"
-            className={`btn btn-sm ${activeLayer === 'streets' ? 'btn-primary' : 'btn-ghost'}`}
-            onClick={() => setActiveLayer('streets')}
-            style={{ padding: '4px 10px', fontSize: '0.75rem', borderRadius: '6px' }}
-          >
-            <Globe size={12} />
-            <span>Streets</span>
-          </button>
-          <button
-            type="button"
             className={`btn btn-sm ${activeLayer === 'satellite' ? 'btn-primary' : 'btn-ghost'}`}
             onClick={() => setActiveLayer('satellite')}
             style={{ padding: '4px 10px', fontSize: '0.75rem', borderRadius: '6px' }}
           >
             <Satellite size={12} />
             <span>Satellite</span>
+          </button>
+          <button
+            type="button"
+            className={`btn btn-sm ${activeLayer === 'streets' ? 'btn-primary' : 'btn-ghost'}`}
+            onClick={() => setActiveLayer('streets')}
+            style={{ padding: '4px 10px', fontSize: '0.75rem', borderRadius: '6px' }}
+          >
+            <Globe size={12} />
+            <span>Streets</span>
           </button>
           <button
             type="button"
