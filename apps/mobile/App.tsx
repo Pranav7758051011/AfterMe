@@ -373,7 +373,7 @@ export default function App() {
   const renderAsk = () => (
     <View>
       <Text style={styles.pageTitle}>Ask AfterMe</Text>
-      <Text style={styles.pageSubtitle}>Grounded retrieval · Zero hallucinations</Text>
+      <Text style={styles.pageSubtitle}>Grounded retrieval · Context verified</Text>
 
       {/* Sample questions */}
       <View style={styles.sampleQuestions}>

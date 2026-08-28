@@ -110,7 +110,7 @@ export const CompanyFooter: React.FC<CompanyFooterProps> = ({ onNavigateToTab })
               }}
             >
               <Shield size={11} />
-              <span>Zero-Hallucination Verified</span>
+              <span>Grounded Retrieval Verified</span>
             </span>
           </div>
 

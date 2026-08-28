@@ -79,14 +79,14 @@ async function runFullGoldenDemo() {
   console.log('  Has Verified Match:', askRes1.has_match);
   console.log('  Cited Records:', askRes1.relevant_memories.map(m => m.object + ' @ ' + m.location));
 
-  // STEP 9: Anti-Hallucination Query
-  console.log('\n--- Step 9: Anti-Hallucination Test (Unknown Item) ---');
+  // STEP 9: Grounded Retrieval & Unknown Item Rejection Test
+  console.log('\n--- Step 9: Grounded Retrieval Test (Unknown Item Rejection) ---');
   console.log('User Question: "Where are my sunglasses?"');
   const askRes2 = await request('/api/ask', 'POST', {
     question: 'Where are my sunglasses?',
     user_id: 'demo_user_001'
   });
-  console.log('AfterMe AI Answer (Strict Zero-Hallucination):');
+  console.log('AfterMe AI Answer (Context Grounded Rejection):');
   console.log('  >>', askRes2.answer);
   console.log('  Has Match:', askRes2.has_match);
 

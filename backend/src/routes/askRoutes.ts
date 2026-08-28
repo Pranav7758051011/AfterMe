@@ -22,7 +22,7 @@ router.post('/', async (req: AuthenticatedRequest, res: Response) => {
     // Fetch user memories from Firestore
     const memories = await firestoreRepo.getAll(userId);
 
-    // Call Gemini with strict anti-hallucination grounding
+    // Call Gemini with context-grounded retrieval constraints
     const askResult = await askAfterMeWithGemini(question.trim(), memories, userLoc);
 
     // Resolve memory objects for citations

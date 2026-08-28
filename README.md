@@ -31,7 +31,7 @@
 | :--- | :--- |
 | **Passive**: You must remember to open the app and manually search. | **Proactive**: Automatically monitors your GPS position and alerts you *before* you leave a place. |
 | **No spatial awareness**: Notes don't understand where you are physically located. | **GPS Geofenced**: Dynamically calculates distance in meters and draws a safety radius around items. |
-| **Hallucination-prone AI**: Standard chatbots often guess where items are. | **Strict Grounding**: Zero hallucinations. Only retrieves verifiable recorded memories with citations. |
+| **Hallucination-prone AI**: Standard chatbots often guess where items are. | **Strict Grounding**: Context-constrained retrieval designed to minimize unsupported responses. Retrieves recorded memories with verifiable citations. |
 | **Single-format**: Text-only notes with no visual spatial context. | **Multimodal Vision & Voice**: Snap photos of items/parking spots + hear AI voice spoken aloud. |
 
 ---
@@ -44,7 +44,7 @@
 ├───────────────────────────────┬──────────────────────────────────────────────────────────┤
 │ 🧠 Gemini Multimodal Vision   │ • Structured entity extraction (object, location, risk)  │
 │                               │ • 📸 Photo memory capture (reads parking bays, lockers)  │
-│                               │ • Zero-hallucination grounded conversational retrieval   │
+│                               │ • Context-grounded conversational retrieval with citations│
 │                               │ • Contextual linking (e.g., Passport ↔ Visa Appointment) │
 ├───────────────────────────────┼──────────────────────────────────────────────────────────┤
 │ 🛰️ Real-Time GPS & Map Radar  │ • Auto-detects physical latitude & longitude via browser │
@@ -81,7 +81,7 @@ flowchart TB
     subgraph Server["⚡ Node.js & TypeScript Backend Engine"]
         ROUTER["REST API Router (/api)"]
         GEO["🛰️ Proactive Geofencing Engine<br/>(Haversine Distance Math)"]
-        GROUND["🛡️ Grounded Retrieval Layer<br/>(Anti-Hallucination Guardrails)"]
+        GROUND["🛡️ Grounded Retrieval Layer<br/>(Hallucination-Mitigation Guardrails)"]
     end
 
     subgraph Cloud["🔥 Google Firebase & Cloud AI"]
@@ -137,7 +137,7 @@ cp .env.example .env
 cp backend/.env.example backend/.env
 ```
 * **Firebase Project**: Pre-configured with `afterme-ai-app` (Project Number: `377448090451`).
-* *(Optional)* Add your `GEMINI_API_KEY` in `.env`. An intelligent offline fallback engine is built-in so all demos work 100% reliably even offline!
+* *(Optional)* Add your `GEMINI_API_KEY` in `.env`. An intelligent offline fallback engine is built-in so all demos work reliably even offline!
 
 ### 3. Run the Development Server
 ```bash
@@ -154,7 +154,7 @@ Press `w` for browser preview or scan the QR code with **Expo Go** on your physi
 
 ### 5. Run Automated Test Suites
 ```bash
-# E2E Golden Demo & Anti-Hallucination Guardrails
+# E2E Golden Demo & Grounded Retrieval Guardrails
 node test-full-demo.js
 
 # Real-Time GPS & Geofence Departure Engine
@@ -176,7 +176,11 @@ node test-cross-platform.js
 | `POST` | `/api/memories` | Natural language / multimodal photo memory extraction via Gemini & Firestore save |
 | `GET` | `/api/memories` | Filtered list of user memories (`belonging`, `task`, `document`, `potentially_forgotten`) |
 | `PATCH`| `/api/memories/:id/status` | Update memory status (`retrieved`, `completed`, `active`) |
-| `POST` | `/api/ask` | Grounded conversational retrieval with zero hallucinations and citations |
+| `POST` | `/api/ask` | Grounded conversational retrieval constrained by stored memory citations |
+| `POST` | `/api/location/gps` | Real-time GPS coordinate telemetry with Haversine distance geofence calculation |
+| `POST` | `/api/location/change` | Simulate location departure and evaluate left-behind items |
+| `POST` | `/api/demo/seed-golden` | 1-Click seed Golden Demo persona into Firestore |
+| `POST` | `/api/demo/reset` | Clean slate reset for new demo or evaluation session |
 | `POST` | `/api/location/gps` | Real-time GPS coordinate telemetry with Haversine distance geofence calculation |
 | `POST` | `/api/location/change` | Simulate location departure and evaluate left-behind items |
 | `POST` | `/api/demo/seed-golden` | 1-Click seed Golden Demo persona into Firestore |

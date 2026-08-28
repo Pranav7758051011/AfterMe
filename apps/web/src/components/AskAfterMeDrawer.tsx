@@ -139,7 +139,7 @@ export const AskAfterMeDrawer: React.FC<AskAfterMeDrawerProps> = ({
             <div>
               <div style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'var(--text-primary)' }}>Ask AfterMe</div>
               <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.65rem', color: 'var(--text-tertiary)', letterSpacing: '0.06em' }}>
-                GROUNDED · ZERO HALLUCINATION
+                GROUNDED · CONTEXT VERIFIED
               </div>
             </div>
           </div>

@@ -116,7 +116,7 @@ export const DemoScenarioSelector: React.FC<DemoScenarioSelectorProps> = ({
               STEP 3 &bull; Grounded Retrieval
             </div>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-              Asks: "Where did I leave my charger?" with zero hallucinations
+              Asks: "Where did I leave my charger?" with grounded citation retrieval
             </div>
           </div>
           <button

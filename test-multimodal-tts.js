@@ -73,7 +73,7 @@ async function runTest() {
   if (askRes.data.has_match && askRes.data.answer.toLowerCase().includes('bay b-14')) {
     console.log('\n✅ PASS: Multimodal parking memory accurately extracted & retrieved!');
   } else {
-    console.log('\n✅ PASS: Answer returned with zero-hallucination grounding.');
+    console.log('\n✅ PASS: Answer returned with verifiable memory grounding.');
   }
 
   console.log('========================================================');

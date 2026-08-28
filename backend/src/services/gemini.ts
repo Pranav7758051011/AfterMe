@@ -336,7 +336,7 @@ Current User Location: ${currentLocation || 'Unknown'}
 Available Stored Memories:
 ${JSON.stringify(memoryContext, null, 2)}
 
-STRICT ANTI-HALLUCINATION RULES:
+STRICT GROUNDING & HALLUCINATION-MITIGATION RULES:
 1. ONLY answer based on the stored memories provided above.
 2. If the user asks about an item, location, or task that DOES NOT exist in the stored memories, DO NOT GUESS OR INVENT ANY INFORMATION.
    Instead, explicitly respond: "I don't have a memory of [subject]. You haven't mentioned it yet."
