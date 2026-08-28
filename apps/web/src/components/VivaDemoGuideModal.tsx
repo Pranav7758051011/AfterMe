@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import {
   GraduationCap, X, CheckCircle2, Shield, Brain,
   Compass, Zap, Server, FileText, ChevronRight
@@ -12,35 +13,42 @@ interface VivaDemoGuideModalProps {
 export const VivaDemoGuideModal: React.FC<VivaDemoGuideModalProps> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
-  return (
+  const modalContent = (
     <div
       style={{
         position: 'fixed',
-        inset: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.82)',
-        backdropFilter: 'blur(8px)',
-        zIndex: 9999,
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        width: '100vw',
+        height: '100vh',
+        backgroundColor: 'rgba(0, 0, 0, 0.85)',
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+        zIndex: 999999,
         display: 'flex',
-        alignItems: 'flex-start',
+        alignItems: 'center',
         justifyContent: 'center',
-        padding: '24px 16px',
+        padding: '20px',
+        boxSizing: 'border-box',
         overflowY: 'auto',
       }}
       onClick={onClose}
     >
       <div
         style={{
-          margin: 'auto',
           background: 'var(--bg-secondary)',
           border: '1px solid var(--border-glow)',
           borderRadius: '20px',
           maxWidth: '840px',
           width: '100%',
-          maxHeight: 'calc(100vh - 48px)',
+          maxHeight: '92vh',
           overflowY: 'auto',
           padding: '24px 28px',
-          boxShadow: '0 24px 60px rgba(0, 0, 0, 0.6)',
+          boxShadow: '0 30px 80px rgba(0, 0, 0, 0.9), 0 0 40px rgba(99, 102, 241, 0.25)',
           position: 'relative',
+          boxSizing: 'border-box',
         }}
         onClick={e => e.stopPropagation()}
       >
@@ -155,4 +163,6 @@ export const VivaDemoGuideModal: React.FC<VivaDemoGuideModalProps> = ({ isOpen, 
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : null;
 };
