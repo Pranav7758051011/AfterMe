@@ -9,6 +9,8 @@ import locationRoutes from './routes/locationRoutes';
 import demoRoutes from './routes/demoRoutes';
 import authRoutes from './routes/authRoutes';
 
+import { metricsTracker } from './services/metricsTracker';
+
 const app = express();
 
 // Enable CORS for web and mobile clients
@@ -19,6 +21,12 @@ app.use(cors({
 }));
 
 app.use(express.json());
+
+// Telemetry & Request Counter Middleware
+app.use((req, res, next) => {
+  metricsTracker.recordRequest();
+  next();
+});
 
 // Initialize Firebase Admin & Firestore
 const fbStatus = initializeFirebaseAdmin();
@@ -36,6 +44,11 @@ app.get('/api/health', (req: Request, res: Response) => {
     gemini_model: config.geminiModel,
     timestamp: new Date().toISOString()
   });
+});
+
+// Real-Time System Telemetry & Cost Observability Endpoint
+app.get('/api/metrics', (req: Request, res: Response) => {
+  return res.json(metricsTracker.getMetrics());
 });
 
 // API Routes

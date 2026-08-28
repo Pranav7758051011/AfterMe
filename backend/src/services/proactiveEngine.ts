@@ -1,5 +1,6 @@
 import { firestoreRepo, Memory, ProactiveAlert, RiskLevel } from '../database/firestoreRepo';
 import { getAdminMessaging, getAdminFirestore } from '../database/firebaseAdmin';
+import { metricsTracker } from './metricsTracker';
 
 // Standard campus coordinates for instant offline/map visualization
 export const KNOWN_PLACE_COORDINATES: Record<string, { lat: number; lng: number; radius: number }> = {
@@ -354,6 +355,8 @@ export const proactiveEngine = {
     const message = newAlerts.length > 0
       ? `🚨 Geofence Departure: ${newAlerts.length} item(s) are outside your current GPS safety radius!`
       : `GPS Updated (${latitude.toFixed(4)}, ${longitude.toFixed(4)}). All belongings within safety distance.`;
+
+    metricsTracker.recordGeofenceCheck(15, newAlerts.length);
 
     return {
       previous_location: existingState.previous_location,

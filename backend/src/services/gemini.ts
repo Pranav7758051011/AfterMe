@@ -2,6 +2,7 @@ import { GoogleGenAI } from '@google/genai';
 import { z } from 'zod';
 import { config } from '../config';
 import { Memory, MemoryType, RiskLevel, MemoryStatus } from '../database/memoryRepo';
+import { metricsTracker } from './metricsTracker';
 
 export interface ExtractedMemory {
   memory_type: MemoryType;
@@ -304,6 +305,7 @@ Respond ONLY with valid JSON matching this schema:
       ];
     }
 
+    const t0 = Date.now();
     const response = await ai.models.generateContent({
       model: config.geminiModel || 'gemini-2.5-flash',
       contents: contents,
@@ -311,9 +313,11 @@ Respond ONLY with valid JSON matching this schema:
         responseMimeType: 'application/json',
       }
     });
+    const latencyMs = Date.now() - t0;
 
     const outputText = response.text;
     if (outputText) {
+      metricsTracker.recordExtraction(latencyMs, true, safeText.length, outputText.length);
       const rawJson = parseAndSanitizeJSON(outputText);
       const validated = ExtractedMemorySchema.parse(rawJson);
 
@@ -341,7 +345,10 @@ Respond ONLY with valid JSON matching this schema:
     console.warn('[Gemini API Warning] Multimodal extraction failed or output was malformed. Falling back to heuristic engine.', error?.message || error);
   }
 
-  return fallbackExtract(safeText, currentLocation, imageUrl || imageBase64);
+  const fallbackT0 = Date.now();
+  const fallbackResult = fallbackExtract(safeText, currentLocation, imageUrl || imageBase64);
+  metricsTracker.recordExtraction(Date.now() - fallbackT0, false, safeText.length, fallbackResult.summary.length);
+  return fallbackResult;
 }
 
 // ─── Gemini Grounded Retrieval with Citation Validation ─────────────
@@ -462,6 +469,7 @@ Return JSON in this format:
 }
 `;
 
+    const t0 = Date.now();
     const response = await ai.models.generateContent({
       model: config.geminiModel || 'gemini-2.5-flash',
       contents: prompt,
@@ -469,9 +477,11 @@ Return JSON in this format:
         responseMimeType: 'application/json',
       }
     });
+    const latencyMs = Date.now() - t0;
 
     const outputText = response.text;
     if (outputText) {
+      metricsTracker.recordAskQuery(latencyMs, true, memories.length, outputText.length);
       const rawJson = parseAndSanitizeJSON(outputText);
       const validated = AskResultSchema.parse(rawJson);
 
@@ -492,6 +502,7 @@ Return JSON in this format:
     console.warn('[Gemini Ask Warning] API retrieval call failed or output was malformed. Falling back to grounded heuristics.', error?.message || error);
   }
 
+  const fallbackT0 = Date.now();
   // Fallback heuristic retrieval if API fails or returns invalid response
   const matching = memories.filter(m => {
     const text = `${m.original_text} ${m.object || ''} ${m.location || ''} ${m.task || ''}`.toLowerCase();
@@ -500,18 +511,23 @@ Return JSON in this format:
   });
 
   if (matching.length === 0) {
-    return {
+    const res: AskResult = {
       answer: `I don't have a memory matching "${safeQuestion}".`,
       has_match: false,
       confidence: 0.8,
       relevant_memory_ids: []
     };
+    metricsTracker.recordAskQuery(Date.now() - fallbackT0, false, memories.length, res.answer.length);
+    return res;
   }
 
-  return {
-    answer: `Based on your memory: "${matching[0].original_text}".`,
+  const fallbackAnswer = `Based on your memory: "${matching[0].original_text}".`;
+  const res: AskResult = {
+    answer: fallbackAnswer,
     has_match: true,
     confidence: 0.85,
     relevant_memory_ids: matching.map(m => m.id).filter(id => validMemoryIdSet.has(id))
   };
+  metricsTracker.recordAskQuery(Date.now() - fallbackT0, false, memories.length, fallbackAnswer.length);
+  return res;
 }
