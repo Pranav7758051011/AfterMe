@@ -21,23 +21,26 @@ export const VivaDemoGuideModal: React.FC<VivaDemoGuideModalProps> = ({ isOpen, 
         backdropFilter: 'blur(8px)',
         zIndex: 9999,
         display: 'flex',
-        alignItems: 'center',
+        alignItems: 'flex-start',
         justifyContent: 'center',
-        padding: '20px',
+        padding: '24px 16px',
+        overflowY: 'auto',
       }}
       onClick={onClose}
     >
       <div
         style={{
+          margin: 'auto',
           background: 'var(--bg-secondary)',
           border: '1px solid var(--border-glow)',
           borderRadius: '20px',
           maxWidth: '840px',
           width: '100%',
-          maxHeight: '90vh',
+          maxHeight: 'calc(100vh - 48px)',
           overflowY: 'auto',
-          padding: '28px',
+          padding: '24px 28px',
           boxShadow: '0 24px 60px rgba(0, 0, 0, 0.6)',
+          position: 'relative',
         }}
         onClick={e => e.stopPropagation()}
       >
