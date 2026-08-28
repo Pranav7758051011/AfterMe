@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import { Play, Sparkles, CheckCircle2, Navigation, HelpCircle, GraduationCap } from 'lucide-react';
+import { Play, Sparkles, CheckCircle2, Navigation, HelpCircle, GraduationCap, Trophy } from 'lucide-react';
 import { VivaDemoGuideModal } from './VivaDemoGuideModal';
+import { JudgeLiveModal } from './JudgeLiveModal';
+import { alertSound } from '../services/alertSound';
 
 interface DemoScenarioSelectorProps {
   onRunGoldenStep1: () => void;
@@ -16,6 +18,17 @@ export const DemoScenarioSelector: React.FC<DemoScenarioSelectorProps> = ({
   isLoading,
 }) => {
   const [isVivaGuideOpen, setIsVivaGuideOpen] = useState(false);
+  const [isJudgeModalOpen, setIsJudgeModalOpen] = useState(false);
+
+  const handleStep1 = () => {
+    alertSound.playSuccessPing();
+    onRunGoldenStep1();
+  };
+
+  const handleStep2 = () => {
+    alertSound.playDepartureAlarm();
+    onRunGoldenStep2();
+  };
 
   return (
     <>
@@ -37,6 +50,25 @@ export const DemoScenarioSelector: React.FC<DemoScenarioSelectorProps> = ({
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={() => setIsJudgeModalOpen(true)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                fontSize: '0.78rem',
+                padding: '4px 10px',
+                background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(6, 182, 212, 0.15))',
+                borderColor: 'var(--accent)',
+                color: '#e0e7ff',
+                fontWeight: 700,
+              }}
+            >
+              <Trophy size={14} color="var(--warning-text)" />
+              <span>Judges Hub & Live QR</span>
+            </button>
+
             <button
               className="btn btn-secondary btn-sm"
               onClick={() => setIsVivaGuideOpen(true)}
@@ -71,7 +103,7 @@ export const DemoScenarioSelector: React.FC<DemoScenarioSelectorProps> = ({
             </div>
             <button
               className="btn btn-secondary btn-sm"
-              onClick={onRunGoldenStep1}
+              onClick={handleStep1}
               disabled={isLoading}
               style={{ width: '100%' }}
             >
@@ -97,12 +129,12 @@ export const DemoScenarioSelector: React.FC<DemoScenarioSelectorProps> = ({
                 STEP 2 &bull; Simulate Departure
               </div>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                Moves location to Office Desk &rarr; Triggers Geofence Departure Alert
+                Moves location to Office Desk &rarr; Triggers Geofence Departure Alert + Sound
               </div>
             </div>
             <button
               className="btn btn-secondary btn-sm"
-              onClick={onRunGoldenStep2}
+              onClick={handleStep2}
               disabled={isLoading}
               style={{ width: '100%' }}
             >
@@ -147,6 +179,11 @@ export const DemoScenarioSelector: React.FC<DemoScenarioSelectorProps> = ({
       <VivaDemoGuideModal
         isOpen={isVivaGuideOpen}
         onClose={() => setIsVivaGuideOpen(false)}
+      />
+
+      <JudgeLiveModal
+        isOpen={isJudgeModalOpen}
+        onClose={() => setIsJudgeModalOpen(false)}
       />
     </>
   );

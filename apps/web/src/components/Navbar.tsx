@@ -3,11 +3,12 @@ import {
   Brain, MessageSquareQuote, Sparkles, RotateCcw, Play,
   LogIn, ShieldCheck, BarChart3, Download,
   LayoutDashboard, Compass, Mic, ChevronDown, Zap, Search,
-  Sun, Moon
+  Sun, Moon, Trophy, QrCode
 } from 'lucide-react';
 import { AppStats } from '../types';
 import { auth } from '../services/firebase';
 import { ActivePageTab } from './BottomNavBar';
+import { JudgeLiveModal } from './JudgeLiveModal';
 
 interface NavbarProps {
   stats: AppStats | null;
@@ -52,6 +53,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const currentUser = auth.currentUser;
   const [isPresetsOpen, setIsPresetsOpen] = useState(false);
+  const [isJudgeModalOpen, setIsJudgeModalOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -192,6 +194,24 @@ export const Navbar: React.FC<NavbarProps> = ({
           )}
         </div>
 
+        {/* Judges Hub & Live QR Modal Button */}
+        <button
+          type="button"
+          className="btn btn-secondary btn-sm"
+          onClick={() => setIsJudgeModalOpen(true)}
+          style={{
+            background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(6, 182, 212, 0.15))',
+            borderColor: 'var(--accent)',
+            color: '#e0e7ff',
+            fontWeight: 700,
+            gap: 6,
+          }}
+          title="Judges & Live Interactive Evaluation Hub"
+        >
+          <Trophy size={13} color="var(--warning-text)" />
+          <span>Judges Hub</span>
+        </button>
+
         {/* Install PWA */}
         {canInstallPWA && onInstallPWA && (
           <button
@@ -270,6 +290,11 @@ export const Navbar: React.FC<NavbarProps> = ({
           )}
         </button>
       </div>
+
+      <JudgeLiveModal
+        isOpen={isJudgeModalOpen}
+        onClose={() => setIsJudgeModalOpen(false)}
+      />
     </header>
   );
 };
