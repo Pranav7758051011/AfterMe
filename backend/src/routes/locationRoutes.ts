@@ -44,15 +44,21 @@ router.post('/change', async (req: AuthenticatedRequest, res: Response) => {
 router.post('/gps', async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { latitude, longitude, accuracy, place_name } = req.body;
-    if (latitude === undefined || longitude === undefined) {
-      return res.status(400).json({ error: 'latitude and longitude are required.' });
+    const latNum = Number(latitude);
+    const lngNum = Number(longitude);
+
+    if (isNaN(latNum) || isNaN(lngNum) || latNum < -90 || latNum > 90 || lngNum < -180 || lngNum > 180) {
+      return res.status(400).json({ 
+        error: 'Invalid coordinates provided. Latitude must be between -90 and 90, Longitude between -180 and 180.',
+        received: { latitude, longitude }
+      });
     }
 
     const userId = req.userId || config.defaultUserId;
     const result = await proactiveEngine.handleGPSLocationUpdate(
       userId,
-      Number(latitude),
-      Number(longitude),
+      latNum,
+      lngNum,
       accuracy !== undefined ? Number(accuracy) : 10,
       place_name
     );

@@ -13,10 +13,49 @@ export const KNOWN_PLACE_COORDINATES: Record<string, { lat: number; lng: number;
 };
 
 /**
- * Haversine formula to compute great-circle distance between two points in meters
+ * Coordinate Validation Helper
+ * Ensures coordinates are valid finite numbers within WGS-84 ranges:
+ * Latitude: [-90, +90]
+ * Longitude: [-180, +180]
+ */
+export function isValidCoordinate(lat: number, lng: number): boolean {
+  if (typeof lat !== 'number' || typeof lng !== 'number') return false;
+  if (isNaN(lat) || isNaN(lng)) return false;
+  if (!isFinite(lat) || !isFinite(lng)) return false;
+  if (lat < -90 || lat > 90) return false;
+  if (lng < -180 || lng > 180) return false;
+  return true;
+}
+
+/**
+ * Great-Circle Distance Calculation using the Haversine Formula
+ * 
+ * Mathematical Rationale:
+ * Earth is an oblate spheroid, modeled here as a sphere with mean radius R = 6,371,000 meters.
+ * Naive Euclidean distance (sqrt(dx^2 + dy^2)) assumes a flat 2D plane where 1 degree is constant.
+ * However, on Earth:
+ * - 1 degree of latitude is ~111 km everywhere.
+ * - 1 degree of longitude scales by cos(latitude), shrinking from ~111 km at the equator to 0 at the poles.
+ * At latitude 37.7° (San Francisco), 1° of longitude is only ~88 km.
+ * Using Euclidean distance would distort circular geofences into squashed ellipses and cause severe false alarms.
+ * 
+ * Haversine Formula:
+ * a = sin²(Δφ / 2) + cos(φ1) · cos(φ2) · sin²(Δλ / 2)
+ * c = 2 · atan2(√a, √(1 − a))
+ * d = R · c
+ * 
+ * @param lat1 Latitude of point 1 (in decimal degrees)
+ * @param lon1 Longitude of point 1 (in decimal degrees)
+ * @param lat2 Latitude of point 2 (in decimal degrees)
+ * @param lon2 Longitude of point 2 (in decimal degrees)
+ * @returns Geodesic distance in meters (rounded to nearest integer)
  */
 export function getDistanceInMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371e3; // Earth radius in meters
+  if (!isValidCoordinate(lat1, lon1) || !isValidCoordinate(lat2, lon2)) {
+    throw new Error(`Invalid geographic coordinate input: (${lat1}, ${lon1}) to (${lat2}, ${lon2})`);
+  }
+
+  const R = 6371e3; // Mean Earth radius in meters
   const φ1 = (lat1 * Math.PI) / 180;
   const φ2 = (lat2 * Math.PI) / 180;
   const Δφ = ((lat2 - lat1) * Math.PI) / 180;
@@ -31,7 +70,7 @@ export function getDistanceInMeters(lat1: number, lon1: number, lat2: number, lo
 }
 
 export function getCoordinatesForPlace(placeName: string): { lat: number; lng: number; radius: number } {
-  const lower = placeName.trim().toLowerCase();
+  const lower = (placeName || '').trim().toLowerCase();
   for (const [key, coords] of Object.entries(KNOWN_PLACE_COORDINATES)) {
     if (lower.includes(key)) return coords;
   }
@@ -58,6 +97,7 @@ export interface LocationEvaluationResult {
   items_at_risk: Memory[];
   message: string;
   fcm_dispatched?: boolean;
+  accuracy_quality?: 'high' | 'medium' | 'degraded_suppressed';
 }
 
 export const proactiveEngine = {
@@ -65,8 +105,8 @@ export const proactiveEngine = {
    * Handle Location Departure by Place Name
    */
   async handleLocationChange(userId: string, previousLocation: string, currentLocation: string): Promise<LocationEvaluationResult> {
-    const prev = previousLocation.trim();
-    const curr = currentLocation.trim();
+    const prev = (previousLocation || '').trim();
+    const curr = (currentLocation || '').trim();
     const coords = getCoordinatesForPlace(curr);
 
     // Update location state in Firestore
@@ -156,7 +196,8 @@ export const proactiveEngine = {
   },
 
   /**
-   * Handle Real-Time GPS Location Update with Geofence Calculation
+   * Handle Real-Time GPS Location Update with Strict Geofence Calculation,
+   * GPS Accuracy Quality Filtering, and Coordinate Validation
    */
   async handleGPSLocationUpdate(
     userId: string,
@@ -165,15 +206,39 @@ export const proactiveEngine = {
     accuracy: number = 10,
     placeName?: string
   ): Promise<LocationEvaluationResult> {
+    if (!isValidCoordinate(latitude, longitude)) {
+      throw new Error(`Invalid GPS coordinates provided: lat=${latitude}, lng=${longitude}`);
+    }
+
     const existingState = await firestoreRepo.getUserLocation(userId);
     const resolvedPlace = placeName || existingState.current_location;
+
+    // ─── GPS Accuracy Filtering ─────────────────────────────────────
+    // If accuracy is too degraded (e.g. > 150m), suppress geofence evaluation
+    // to avoid false positive alarms while GPS acquires satellite lock.
+    const isAccuracyDegraded = accuracy > 150;
+    const accuracyQuality = isAccuracyDegraded ? 'degraded_suppressed' : (accuracy > 50 ? 'medium' : 'high');
 
     // Save GPS coords to Firestore
     await firestoreRepo.updateUserLocation(userId, resolvedPlace, existingState.previous_location, latitude, longitude, accuracy);
 
+    const existingAlerts = await firestoreRepo.getActiveAlerts(userId);
+
+    if (isAccuracyDegraded) {
+      return {
+        previous_location: existingState.previous_location,
+        current_location: resolvedPlace,
+        latitude,
+        longitude,
+        alerts: existingAlerts,
+        items_at_risk: [],
+        message: `GPS accuracy degraded (±${accuracy}m > 150m threshold). Suppressing geofence evaluation until satellite lock improves.`,
+        accuracy_quality: 'degraded_suppressed',
+      };
+    }
+
     // Fetch all active belongings
     const activeBelongings = await firestoreRepo.getAllActiveBelongings(userId);
-    const existingAlerts = await firestoreRepo.getActiveAlerts(userId);
     const itemsStatus: ItemGeofenceStatus[] = [];
     const newAlerts: ProactiveAlert[] = [];
 
@@ -181,7 +246,7 @@ export const proactiveEngine = {
       // Determine coordinates of where the item was left
       let itemLat = memory.latitude;
       let itemLng = memory.longitude;
-      let geofenceRadius = memory.radius || 75;
+      let geofenceRadius = memory.radius || 60; // 60m standard campus safety zone
 
       if ((itemLat === null || itemLat === undefined) && memory.location) {
         const coords = getCoordinatesForPlace(memory.location);
@@ -191,34 +256,38 @@ export const proactiveEngine = {
       }
 
       if (itemLat !== null && itemLat !== undefined && itemLng !== null && itemLng !== undefined) {
-        const distance = getDistanceInMeters(latitude, longitude, itemLat, itemLng);
-        const isOutside = distance > geofenceRadius;
+        if (isValidCoordinate(itemLat, itemLng)) {
+          const distance = getDistanceInMeters(latitude, longitude, itemLat, itemLng);
+          
+          // Strict boundary evaluation: distance > radius triggers departure (radius itself is safe)
+          const isOutside = distance > geofenceRadius;
 
-        itemsStatus.push({
-          memory_id: memory.id,
-          object: memory.object || memory.original_text,
-          location: memory.location || 'Unknown Location',
-          distance_meters: distance,
-          is_outside_geofence: isOutside,
-          risk_level: memory.risk_level,
-        });
+          itemsStatus.push({
+            memory_id: memory.id,
+            object: memory.object || memory.original_text,
+            location: memory.location || 'Unknown Location',
+            distance_meters: distance,
+            is_outside_geofence: isOutside,
+            risk_level: memory.risk_level,
+          });
 
-        // If outside geofence and high/critical risk
-        if (isOutside && (memory.risk_level === 'high' || memory.risk_level === 'critical' || memory.status === 'potentially_forgotten')) {
-          await firestoreRepo.updateStatus(memory.id, 'potentially_forgotten');
+          // If outside geofence and high/critical risk
+          if (isOutside && (memory.risk_level === 'high' || memory.risk_level === 'critical' || memory.status === 'potentially_forgotten')) {
+            await firestoreRepo.updateStatus(memory.id, 'potentially_forgotten');
 
-          const alreadyAlerted = existingAlerts.some(a => a.memory_id === memory.id && !a.is_dismissed);
-          if (!alreadyAlerted) {
-            const alert = await firestoreRepo.createAlert({
-              user_id: userId,
-              memory_id: memory.id,
-              trigger_type: 'geofence_departure',
-              title: '🚨 Geofence Departure Detected',
-              message: `You are ${distance}m away from ${memory.location || 'your last location'}. You mentioned leaving your ${memory.object || 'item'} behind.`,
-              severity: memory.risk_level,
-              distance_meters: distance,
-            });
-            newAlerts.push(alert);
+            const alreadyAlerted = existingAlerts.some(a => a.memory_id === memory.id && !a.is_dismissed);
+            if (!alreadyAlerted) {
+              const alert = await firestoreRepo.createAlert({
+                user_id: userId,
+                memory_id: memory.id,
+                trigger_type: 'geofence_departure',
+                title: '🚨 Geofence Departure Detected',
+                message: `You are ${distance}m away from ${memory.location || 'your last location'}. You mentioned leaving your ${memory.object || 'item'} behind.`,
+                severity: memory.risk_level,
+                distance_meters: distance,
+              });
+              newAlerts.push(alert);
+            }
           }
         }
       }
@@ -239,6 +308,7 @@ export const proactiveEngine = {
       alerts: allActiveAlerts,
       items_at_risk: activeBelongings.filter(b => itemsStatus.find(s => s.memory_id === b.id)?.is_outside_geofence),
       message,
+      accuracy_quality: accuracyQuality,
     };
   }
 };
