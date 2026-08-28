@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import { firestoreRepo } from '../database/firestoreRepo';
 import { extractMemoryWithGemini } from '../services/gemini';
+import { proactiveEngine } from '../services/proactiveEngine';
 import { AuthenticatedRequest, authMiddleware } from '../middleware/auth';
 import { config } from '../config';
 
@@ -13,6 +14,7 @@ router.post('/reset', async (req: AuthenticatedRequest, res: Response) => {
     const userId = req.userId || config.defaultUserId;
     await firestoreRepo.clearUserData(userId);
     await firestoreRepo.updateUserLocation(userId, 'Conference Room', 'Office');
+    proactiveEngine.resetUserTracker(userId);
     return res.json({ success: true, message: 'All demo data cleared and location reset in Firestore.' });
   } catch (error: any) {
     return res.status(500).json({ error: 'Failed to reset demo data.', details: error.message });

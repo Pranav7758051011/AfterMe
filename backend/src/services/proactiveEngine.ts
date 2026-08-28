@@ -13,6 +13,31 @@ export const KNOWN_PLACE_COORDINATES: Record<string, { lat: number; lng: number;
 };
 
 /**
+ * In-Memory Geofence State & Deduplication Tracker
+ * Tracks whether the user is currently 'inside' or 'outside' each item's safety geofence
+ * to prevent duplicate spam alerts while outside, and gracefully re-arm upon re-entry.
+ */
+interface GeofenceTrackingRecord {
+  state: 'inside' | 'outside';
+  last_alerted_at?: number;
+  alerted_for_current_departure: boolean;
+}
+
+const geofenceStateTracker = new Map<string, GeofenceTrackingRecord>();
+
+function getTrackingKey(userId: string, memoryId: string): string {
+  return `${userId}::${memoryId}`;
+}
+
+export function resetGeofenceTrackerForUser(userId: string): void {
+  for (const key of geofenceStateTracker.keys()) {
+    if (key.startsWith(`${userId}::`)) {
+      geofenceStateTracker.delete(key);
+    }
+  }
+}
+
+/**
  * Coordinate Validation Helper
  * Ensures coordinates are valid finite numbers within WGS-84 ranges:
  * Latitude: [-90, +90]
@@ -29,26 +54,7 @@ export function isValidCoordinate(lat: number, lng: number): boolean {
 
 /**
  * Great-Circle Distance Calculation using the Haversine Formula
- * 
- * Mathematical Rationale:
- * Earth is an oblate spheroid, modeled here as a sphere with mean radius R = 6,371,000 meters.
- * Naive Euclidean distance (sqrt(dx^2 + dy^2)) assumes a flat 2D plane where 1 degree is constant.
- * However, on Earth:
- * - 1 degree of latitude is ~111 km everywhere.
- * - 1 degree of longitude scales by cos(latitude), shrinking from ~111 km at the equator to 0 at the poles.
- * At latitude 37.7° (San Francisco), 1° of longitude is only ~88 km.
- * Using Euclidean distance would distort circular geofences into squashed ellipses and cause severe false alarms.
- * 
- * Haversine Formula:
- * a = sin²(Δφ / 2) + cos(φ1) · cos(φ2) · sin²(Δλ / 2)
- * c = 2 · atan2(√a, √(1 − a))
- * d = R · c
- * 
- * @param lat1 Latitude of point 1 (in decimal degrees)
- * @param lon1 Longitude of point 1 (in decimal degrees)
- * @param lat2 Latitude of point 2 (in decimal degrees)
- * @param lon2 Longitude of point 2 (in decimal degrees)
- * @returns Geodesic distance in meters (rounded to nearest integer)
+ * R = 6,371,000 meters
  */
 export function getDistanceInMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
   if (!isValidCoordinate(lat1, lon1) || !isValidCoordinate(lat2, lon2)) {
@@ -101,6 +107,10 @@ export interface LocationEvaluationResult {
 }
 
 export const proactiveEngine = {
+  resetUserTracker(userId: string) {
+    resetGeofenceTrackerForUser(userId);
+  },
+
   /**
    * Handle Location Departure by Place Name
    */
@@ -133,9 +143,11 @@ export const proactiveEngine = {
       if (memory.status !== 'retrieved' && memory.status !== 'completed' && memory.status !== 'archived') {
         await firestoreRepo.updateStatus(memory.id, 'potentially_forgotten');
 
+        const trackKey = getTrackingKey(userId, memory.id);
+        const tracker = geofenceStateTracker.get(trackKey);
         const alreadyAlerted = existingAlerts.some(a => a.memory_id === memory.id && !a.is_dismissed);
 
-        if (!alreadyAlerted) {
+        if (!alreadyAlerted && (!tracker || !tracker.alerted_for_current_departure)) {
           const alert = await firestoreRepo.createAlert({
             user_id: userId,
             memory_id: memory.id,
@@ -145,6 +157,12 @@ export const proactiveEngine = {
             severity: memory.risk_level as RiskLevel,
           });
           newAlerts.push(alert);
+
+          geofenceStateTracker.set(trackKey, {
+            state: 'outside',
+            last_alerted_at: Date.now(),
+            alerted_for_current_departure: true,
+          });
         }
       }
     }
@@ -196,8 +214,8 @@ export const proactiveEngine = {
   },
 
   /**
-   * Handle Real-Time GPS Location Update with Strict Geofence Calculation,
-   * GPS Accuracy Quality Filtering, and Coordinate Validation
+   * Handle Real-Time GPS Location Update with State-Tracking Geofence Protection,
+   * Re-entry/Re-exit Handling, and Notification Cooldown Deduplication.
    */
   async handleGPSLocationUpdate(
     userId: string,
@@ -213,9 +231,7 @@ export const proactiveEngine = {
     const existingState = await firestoreRepo.getUserLocation(userId);
     const resolvedPlace = placeName || existingState.current_location;
 
-    // ─── GPS Accuracy Filtering ─────────────────────────────────────
-    // If accuracy is too degraded (e.g. > 150m), suppress geofence evaluation
-    // to avoid false positive alarms while GPS acquires satellite lock.
+    // GPS Accuracy Filtering
     const isAccuracyDegraded = accuracy > 150;
     const accuracyQuality = isAccuracyDegraded ? 'degraded_suppressed' : (accuracy > 50 ? 'medium' : 'high');
 
@@ -243,6 +259,11 @@ export const proactiveEngine = {
     const newAlerts: ProactiveAlert[] = [];
 
     for (const memory of activeBelongings) {
+      // Ignored if user already marked it as retrieved or completed
+      if (memory.status === 'retrieved' || memory.status === 'completed' || memory.status === 'archived') {
+        continue;
+      }
+
       // Determine coordinates of where the item was left
       let itemLat = memory.latitude;
       let itemLng = memory.longitude;
@@ -259,8 +280,10 @@ export const proactiveEngine = {
         if (isValidCoordinate(itemLat, itemLng)) {
           const distance = getDistanceInMeters(latitude, longitude, itemLat, itemLng);
           
-          // Strict boundary evaluation: distance > radius triggers departure (radius itself is safe)
+          // Boundary evaluation: distance > radius is outside; distance <= radius is safe inside
           const isOutside = distance > geofenceRadius;
+          const trackKey = getTrackingKey(userId, memory.id);
+          const currentTracker = geofenceStateTracker.get(trackKey);
 
           itemsStatus.push({
             memory_id: memory.id,
@@ -271,22 +294,55 @@ export const proactiveEngine = {
             risk_level: memory.risk_level,
           });
 
-          // If outside geofence and high/critical risk
-          if (isOutside && (memory.risk_level === 'high' || memory.risk_level === 'critical' || memory.status === 'potentially_forgotten')) {
-            await firestoreRepo.updateStatus(memory.id, 'potentially_forgotten');
+          if (!isOutside) {
+            // ─── RE-ENTRY DETECTED: User returned inside geofence ─────
+            // Reset the departure alert trigger so future exits can notify again!
+            geofenceStateTracker.set(trackKey, {
+              state: 'inside',
+              alerted_for_current_departure: false,
+            });
+          } else {
+            // ─── DEPARTURE DETECTED: User is outside geofence ─────────
+            const isHighRisk = memory.risk_level === 'high' || memory.risk_level === 'critical' || memory.status === 'potentially_forgotten';
+            
+            if (isHighRisk) {
+              await firestoreRepo.updateStatus(memory.id, 'potentially_forgotten');
 
-            const alreadyAlerted = existingAlerts.some(a => a.memory_id === memory.id && !a.is_dismissed);
-            if (!alreadyAlerted) {
-              const alert = await firestoreRepo.createAlert({
-                user_id: userId,
-                memory_id: memory.id,
-                trigger_type: 'geofence_departure',
-                title: '🚨 Geofence Departure Detected',
-                message: `You are ${distance}m away from ${memory.location || 'your last location'}. You mentioned leaving your ${memory.object || 'item'} behind.`,
-                severity: memory.risk_level,
-                distance_meters: distance,
-              });
-              newAlerts.push(alert);
+              const hasActiveAlertInDb = existingAlerts.some(a => a.memory_id === memory.id && !a.is_dismissed);
+              const alreadyAlertedForExit = currentTracker?.alerted_for_current_departure === true;
+              const cooldownExpired = currentTracker?.last_alerted_at
+                ? (Date.now() - currentTracker.last_alerted_at > 15 * 60 * 1000)
+                : true;
+
+              // Trigger alert ONLY IF we have not already alerted for this departure session,
+              // or cooldown has expired and no duplicate active alert is pending.
+              if (!hasActiveAlertInDb && (!alreadyAlertedForExit || cooldownExpired)) {
+                const alert = await firestoreRepo.createAlert({
+                  user_id: userId,
+                  memory_id: memory.id,
+                  trigger_type: 'geofence_departure',
+                  title: '🚨 Geofence Departure Detected',
+                  message: `You are ${distance}m away from ${memory.location || 'your last location'}. You mentioned leaving your ${memory.object || 'item'} behind.`,
+                  severity: memory.risk_level,
+                  distance_meters: distance,
+                });
+                newAlerts.push(alert);
+
+                geofenceStateTracker.set(trackKey, {
+                  state: 'outside',
+                  last_alerted_at: Date.now(),
+                  alerted_for_current_departure: true,
+                });
+              } else {
+                // Ensure tracker state remains marked as outside
+                if (!currentTracker) {
+                  geofenceStateTracker.set(trackKey, {
+                    state: 'outside',
+                    last_alerted_at: Date.now(),
+                    alerted_for_current_departure: true,
+                  });
+                }
+              }
             }
           }
         }
