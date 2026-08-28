@@ -1,4 +1,5 @@
 import { GoogleGenAI } from '@google/genai';
+import { z } from 'zod';
 import { config } from '../config';
 import { Memory, MemoryType, RiskLevel, MemoryStatus } from '../database/memoryRepo';
 
@@ -30,14 +31,95 @@ export interface AskResult {
   follow_up_hint?: string;
 }
 
-// Fallback rule-based heuristic extractor for offline/demo reliability
+// ─── Zod Schema Definitions for Deterministic Validation ───────────
+
+const MemoryTypeEnum = z.enum([
+  'belonging',
+  'location',
+  'task',
+  'event',
+  'person',
+  'document',
+  'idea',
+  'other',
+]);
+
+const RiskLevelEnum = z.enum(['low', 'medium', 'high', 'critical']);
+
+const MemoryStatusEnum = z.enum([
+  'active',
+  'potentially_forgotten',
+  'retrieved',
+  'completed',
+  'archived',
+]);
+
+export const ExtractedMemorySchema = z.object({
+  memory_type: MemoryTypeEnum.catch('belonging'),
+  object: z.string().nullable().catch(null),
+  task: z.string().nullable().catch(null),
+  event: z.string().nullable().catch(null),
+  person: z.string().nullable().catch(null),
+  location: z.string().nullable().catch(null),
+  action: z.string().nullable().catch(null),
+  date: z.string().nullable().catch(null),
+  time: z.string().nullable().catch(null),
+  deadline: z.string().nullable().catch(null),
+  importance: RiskLevelEnum.catch('medium'),
+  risk_level: RiskLevelEnum.catch('medium'),
+  status: MemoryStatusEnum.catch('active'),
+  image_url: z.string().nullable().optional(),
+  summary: z.string().catch(''),
+  confidence: z.number().min(0).max(1).catch(0.9),
+  reasoning: z.string().catch(''),
+});
+
+export const AskResultSchema = z.object({
+  answer: z.string().min(1),
+  has_match: z.boolean().catch(false),
+  confidence: z.number().min(0).max(1).catch(0.85),
+  relevant_memory_ids: z.array(z.string()).catch([]),
+  follow_up_hint: z.string().optional().nullable(),
+});
+
+// ─── Robust JSON Parsing & Markdown Sanitizer ──────────────────────
+
+/**
+ * Safely extracts and parses JSON from raw LLM output, handling markdown codeblocks,
+ * surrounding conversational text, and whitespace.
+ */
+export function parseAndSanitizeJSON(rawText: string): any {
+  if (!rawText || typeof rawText !== 'string') {
+    throw new Error('Empty or non-string model response received.');
+  }
+
+  let cleaned = rawText.trim();
+
+  // Strip markdown code fences (e.g. ```json ... ``` or ``` ... ```)
+  if (cleaned.startsWith('```')) {
+    cleaned = cleaned.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+  }
+
+  // If there is still extraneous text before or after the JSON block, extract { ... }
+  const firstBrace = cleaned.indexOf('{');
+  const lastBrace = cleaned.lastIndexOf('}');
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    cleaned = cleaned.substring(firstBrace, lastBrace + 1);
+  }
+
+  return JSON.parse(cleaned);
+}
+
+// ─── Fallback Rule-Based Heuristic Extractor ────────────────────────
+
 export function fallbackExtract(text: string, userLocation?: string, imageUrl?: string): ExtractedMemory {
-  const lower = text.toLowerCase();
-  
+  const safeText = (text || '').trim();
+  const lower = safeText.toLowerCase();
+
   // High risk item keywords
   const criticalKeywords = ['passport', 'medication', 'medicine', 'prescription', 'wallet', 'credit card', 'id card', 'driver license', 'keys', 'car keys', 'house keys', 'car', 'vehicle'];
   const highKeywords = ['laptop', 'charger', 'macbook', 'phone', 'iphone', 'airpods', 'headphones', 'watch', 'ipad', 'tablet', 'backpack', 'purse', 'folder', 'documents', 'contract', 'presentation'];
-  
+
   let risk: RiskLevel = 'low';
   if (criticalKeywords.some(k => lower.includes(k))) {
     risk = 'critical';
@@ -50,7 +132,7 @@ export function fallbackExtract(text: string, userLocation?: string, imageUrl?: 
   // Parking spot detection
   let detectedLocation: string | null = null;
   if (lower.includes('parked') || lower.includes('parking')) {
-    const bayMatch = text.match(/(?:bay|spot|slot|section|pillar|level|floor)\s*([a-z0-9\-]+)/i);
+    const bayMatch = safeText.match(/(?:bay|spot|slot|section|pillar|level|floor)\s*([a-z0-9\-]+)/i);
     if (bayMatch) {
       detectedLocation = `Parking Spot ${bayMatch[1].toUpperCase()}`;
     } else {
@@ -66,7 +148,7 @@ export function fallbackExtract(text: string, userLocation?: string, imageUrl?: 
     ];
 
     for (const pattern of locPatterns) {
-      const match = text.match(pattern);
+      const match = safeText.match(pattern);
       if (match && match[1]) {
         detectedLocation = match[1].trim();
         break;
@@ -82,7 +164,7 @@ export function fallbackExtract(text: string, userLocation?: string, imageUrl?: 
   if (lower.includes('car') || lower.includes('vehicle') || lower.includes('parked')) {
     detectedObject = 'Parked Car / Vehicle';
   } else {
-    const objMatch = text.match(/(?:my|the|a|an)\s+([a-z0-9\s]+?)(?:\s+(?:in|at|on|is|was|left|to|for|with)|$|\.)/i);
+    const objMatch = safeText.match(/(?:my|the|a|an)\s+([a-z0-9\s]+?)(?:\s+(?:in|at|on|is|was|left|to|for|with)|$|\.)/i);
     if (objMatch && objMatch[1]) {
       detectedObject = objMatch[1].trim();
     }
@@ -98,14 +180,14 @@ export function fallbackExtract(text: string, userLocation?: string, imageUrl?: 
 
   if (lower.includes('need to') || lower.includes('have to') || lower.includes('must') || lower.includes('todo') || lower.includes('submit') || lower.includes('send')) {
     type = 'task';
-    task = text.replace(/^(i need to|i have to|must|todo|remember to)\s+/i, '').trim();
+    task = safeText.replace(/^(i need to|i have to|must|todo|remember to)\s+/i, '').trim();
     if (lower.includes('tomorrow')) deadline = 'tomorrow';
     if (lower.includes('friday')) deadline = 'Friday';
     if (lower.includes('5 pm') || lower.includes('5pm')) deadline = '5:00 PM';
     if (lower.includes('8 pm') || lower.includes('8pm')) deadline = '8:00 PM';
   } else if (lower.includes('meeting') || lower.includes('appointment') || lower.includes('interview') || lower.includes('flight') || lower.includes('presentation')) {
     type = 'event';
-    event = text;
+    event = safeText;
     if (lower.includes('tomorrow')) date = 'Tomorrow';
   } else if (lower.includes('folder') || lower.includes('passport') || lower.includes('visa') || lower.includes('file') || lower.includes('document')) {
     type = 'document';
@@ -114,7 +196,7 @@ export function fallbackExtract(text: string, userLocation?: string, imageUrl?: 
   }
 
   // Detect Person
-  const personMatch = text.match(/(?:to|with|for|from|dr\.|prof\.|professor|mr\.|ms\.)\s+([A-Z][a-z]+)/);
+  const personMatch = safeText.match(/(?:to|with|for|from|dr\.|prof\.|professor|mr\.|ms\.)\s+([A-Z][a-z]+)/);
   if (personMatch) {
     person = personMatch[1];
   } else if (lower.includes('professor')) {
@@ -129,7 +211,7 @@ export function fallbackExtract(text: string, userLocation?: string, imageUrl?: 
 
   return {
     memory_type: type,
-    object: detectedObject || (type === 'belonging' ? text : null),
+    object: detectedObject || (type === 'belonging' ? (safeText || 'Item') : null),
     task: task,
     event: event,
     person: person,
@@ -142,11 +224,13 @@ export function fallbackExtract(text: string, userLocation?: string, imageUrl?: 
     risk_level: risk,
     status: status,
     image_url: imageUrl || null,
-    summary: text,
+    summary: safeText || 'Recorded memory',
     confidence: 0.88,
-    reasoning: 'Extracted via intelligent heuristic parsing engine (Offline fallback).'
+    reasoning: 'Extracted via deterministic heuristic parsing engine (Offline fallback).'
   };
 }
+
+// ─── Gemini Multimodal Extraction with Schema Validation ────────────
 
 export async function extractMemoryWithGemini(
   text: string,
@@ -155,9 +239,16 @@ export async function extractMemoryWithGemini(
   mimeType = 'image/jpeg',
   imageUrl?: string
 ): Promise<ExtractedMemory> {
+  const safeText = (text || '').trim();
+
+  // If input text and image are both completely empty, return safe default
+  if (!safeText && !imageBase64 && !imageUrl) {
+    return fallbackExtract('Unspecified item', currentLocation, imageUrl);
+  }
+
   const apiKey = config.geminiApiKey;
   if (!apiKey || apiKey.trim() === '') {
-    return fallbackExtract(text, currentLocation, imageUrl);
+    return fallbackExtract(safeText, currentLocation, imageUrl || imageBase64);
   }
 
   try {
@@ -165,7 +256,7 @@ export async function extractMemoryWithGemini(
     const textPrompt = `
 You are the AI multimodal extraction engine for "AfterMe", an intelligent proactive memory assistant.
 Analyze the user's natural language memory statement:
-"${text}"
+"${safeText}"
 Current location context: ${currentLocation || 'Unknown'}
 
 Extract structured information. Strict Rules:
@@ -222,40 +313,54 @@ Respond ONLY with valid JSON matching this schema:
 
     const outputText = response.text;
     if (outputText) {
-      const parsed = JSON.parse(outputText.trim());
+      const rawJson = parseAndSanitizeJSON(outputText);
+      const validated = ExtractedMemorySchema.parse(rawJson);
+
       return {
-        memory_type: parsed.memory_type || 'belonging',
-        object: parsed.object || null,
-        task: parsed.task || null,
-        event: parsed.event || null,
-        person: parsed.person || null,
-        location: parsed.location || null,
-        action: parsed.action || null,
-        date: parsed.date || null,
-        time: parsed.time || null,
-        deadline: parsed.deadline || null,
-        importance: parsed.importance || 'medium',
-        risk_level: parsed.risk_level || parsed.importance || 'medium',
-        status: parsed.status || (parsed.risk_level === 'high' || parsed.risk_level === 'critical' ? 'potentially_forgotten' : 'active'),
+        memory_type: validated.memory_type as MemoryType,
+        object: validated.object || null,
+        task: validated.task || null,
+        event: validated.event || null,
+        person: validated.person || null,
+        location: validated.location || null,
+        action: validated.action || null,
+        date: validated.date || null,
+        time: validated.time || null,
+        deadline: validated.deadline || null,
+        importance: validated.importance as RiskLevel,
+        risk_level: validated.risk_level as RiskLevel,
+        status: (validated.status || (validated.risk_level === 'high' || validated.risk_level === 'critical' ? 'potentially_forgotten' : 'active')) as MemoryStatus,
         image_url: imageUrl || imageBase64 || null,
-        summary: parsed.summary || text,
-        confidence: parsed.confidence || 0.95,
-        reasoning: parsed.reasoning || 'Extracted via Google Gemini Multimodal Vision.'
+        summary: validated.summary || safeText,
+        confidence: typeof validated.confidence === 'number' ? Math.min(Math.max(validated.confidence, 0), 1) : 0.95,
+        reasoning: validated.reasoning || 'Extracted via Google Gemini Multimodal Vision.'
       };
     }
   } catch (error: any) {
-    console.warn('[Gemini API Warning] Multimodal extraction call failed. Falling back to heuristic engine.', error?.message || error);
+    console.warn('[Gemini API Warning] Multimodal extraction failed or output was malformed. Falling back to heuristic engine.', error?.message || error);
   }
 
-  return fallbackExtract(text, currentLocation, imageUrl || imageBase64);
+  return fallbackExtract(safeText, currentLocation, imageUrl || imageBase64);
 }
+
+// ─── Gemini Grounded Retrieval with Citation Validation ─────────────
 
 export async function askAfterMeWithGemini(
   question: string,
   memories: Memory[],
   currentLocation?: string
 ): Promise<AskResult> {
-  const lowerQ = question.toLowerCase();
+  const safeQuestion = (question || '').trim();
+  const lowerQ = safeQuestion.toLowerCase();
+
+  if (!safeQuestion) {
+    return {
+      answer: 'Please ask a question about your belongings, commitments, or recorded places.',
+      has_match: false,
+      confidence: 1.0,
+      relevant_memory_ids: []
+    };
+  }
 
   if (!memories || memories.length === 0) {
     return {
@@ -267,18 +372,20 @@ export async function askAfterMeWithGemini(
     };
   }
 
+  const validMemoryIdSet = new Set(memories.map(m => m.id));
+
   const apiKey = config.geminiApiKey;
   if (!apiKey || apiKey.trim() === '') {
     // Offline heuristic matching
     const matching = memories.filter(m => {
       const text = `${m.original_text} ${m.object || ''} ${m.location || ''} ${m.task || ''} ${m.person || ''}`.toLowerCase();
-      const words = lowerQ.replace(/[?.,!]/g, '').split(/\s+/).filter(w => w.length > 2 && !['where', 'what', 'did', 'leave', 'have', 'the', 'my'].includes(w));
+      const words = lowerQ.replace(/[?.,!]/g, '').split(/\s+/).filter(w => w.length > 2 && !['where', 'what', 'did', 'leave', 'have', 'the', 'my', 'is', 'are'].includes(w));
       return words.some(w => text.includes(w));
     });
 
     if (matching.length === 0) {
       return {
-        answer: `I don't have a memory matching "${question}". I only recall what you have explicitly told me.`,
+        answer: `I don't have a memory matching "${safeQuestion}". I only recall what you have explicitly recorded.`,
         has_match: false,
         confidence: 0.9,
         relevant_memory_ids: [],
@@ -330,7 +437,7 @@ export async function askAfterMeWithGemini(
 
     const prompt = `
 You are "AfterMe", an AI personal memory retrieval layer.
-User Question: "${question}"
+User Question: "${safeQuestion}"
 Current User Location: ${currentLocation || 'Unknown'}
 
 Available Stored Memories:
@@ -342,12 +449,12 @@ STRICT GROUNDING & HALLUCINATION-MITIGATION RULES:
    Instead, explicitly respond: "I don't have a memory of [subject]. You haven't mentioned it yet."
 3. When matching memories exist, synthesize a clear, helpful, direct response citing the location, object, or commitment accurately.
 4. If multiple memories connect (e.g. passport in blue folder and a visa appointment), explain the connection!
-5. Identify the exact matching memory IDs.
+5. Identify the exact matching memory IDs from the list provided.
 
 Return JSON in this format:
 {
   "answer": "Clear grounded answer",
-  "has_match": true / false,
+  "has_match": true,
   "confidence": 0.95,
   "relevant_memory_ids": ["id1", "id2"],
   "follow_up_hint": "optional hint or null"
@@ -364,29 +471,36 @@ Return JSON in this format:
 
     const outputText = response.text;
     if (outputText) {
-      const parsed = JSON.parse(outputText.trim());
+      const rawJson = parseAndSanitizeJSON(outputText);
+      const validated = AskResultSchema.parse(rawJson);
+
+      // Strict Citation Filter: Only keep IDs that actually exist in the passed memory array
+      const verifiedMemoryIds = (validated.relevant_memory_ids || []).filter(id => validMemoryIdSet.has(id));
+
+      const hasValidMatch = Boolean(validated.has_match && verifiedMemoryIds.length > 0);
+
       return {
-        answer: parsed.answer,
-        has_match: Boolean(parsed.has_match),
-        confidence: parsed.confidence || 0.95,
-        relevant_memory_ids: parsed.relevant_memory_ids || [],
-        follow_up_hint: parsed.follow_up_hint || undefined,
+        answer: validated.answer,
+        has_match: hasValidMatch,
+        confidence: typeof validated.confidence === 'number' ? Math.min(Math.max(validated.confidence, 0), 1) : 0.95,
+        relevant_memory_ids: verifiedMemoryIds,
+        follow_up_hint: validated.follow_up_hint || undefined,
       };
     }
   } catch (error: any) {
-    console.warn('[Gemini Ask Warning] API retrieval call failed. Falling back to grounded heuristics.', error?.message || error);
+    console.warn('[Gemini Ask Warning] API retrieval call failed or output was malformed. Falling back to grounded heuristics.', error?.message || error);
   }
 
-  // Fallback if API fails
+  // Fallback heuristic retrieval if API fails or returns invalid response
   const matching = memories.filter(m => {
     const text = `${m.original_text} ${m.object || ''} ${m.location || ''} ${m.task || ''}`.toLowerCase();
-    const words = lowerQ.replace(/[?.,!]/g, '').split(/\s+/).filter(w => w.length > 2);
+    const words = lowerQ.replace(/[?.,!]/g, '').split(/\s+/).filter(w => w.length > 2 && !['where', 'what', 'did', 'leave', 'have', 'the', 'my', 'is', 'are'].includes(w));
     return words.some(w => text.includes(w));
   });
 
   if (matching.length === 0) {
     return {
-      answer: `I don't have a memory matching "${question}".`,
+      answer: `I don't have a memory matching "${safeQuestion}".`,
       has_match: false,
       confidence: 0.8,
       relevant_memory_ids: []
@@ -397,6 +511,6 @@ Return JSON in this format:
     answer: `Based on your memory: "${matching[0].original_text}".`,
     has_match: true,
     confidence: 0.85,
-    relevant_memory_ids: matching.map(m => m.id)
+    relevant_memory_ids: matching.map(m => m.id).filter(id => validMemoryIdSet.has(id))
   };
 }
