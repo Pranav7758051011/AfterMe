@@ -84,7 +84,17 @@ router.get('/alerts', async (req: AuthenticatedRequest, res: Response) => {
 // POST /api/location/alerts/:id/dismiss
 router.post('/alerts/:id/dismiss', async (req: AuthenticatedRequest, res: Response) => {
   try {
+    const userId = req.userId || config.defaultUserId;
     const id = String(req.params.id);
+    const existingAlert = await firestoreRepo.getAlertById(id);
+    
+    if (!existingAlert) {
+      return res.status(404).json({ error: 'Alert not found.' });
+    }
+    if (existingAlert.user_id !== userId) {
+      return res.status(403).json({ error: 'Forbidden: Cannot dismiss foreign user alert.' });
+    }
+
     const success = await firestoreRepo.dismissAlert(id);
     return res.json({ success, message: 'Alert dismissed in Firestore.' });
   } catch (error: any) {

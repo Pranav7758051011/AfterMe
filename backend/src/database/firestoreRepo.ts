@@ -326,6 +326,19 @@ export const firestoreRepo = {
     return alerts.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   },
 
+  async getAlertById(id: string): Promise<ProactiveAlert | null> {
+    const firestore = getAdminFirestore();
+    if (firestore) {
+      try {
+        const doc = await firestore.collection('alerts').doc(id).get();
+        if (doc.exists) {
+          return doc.data() as ProactiveAlert;
+        }
+      } catch (err) {}
+    }
+    return localAlerts.get(id) || null;
+  },
+
   async dismissAlert(id: string): Promise<boolean> {
     const alert = localAlerts.get(id);
     if (alert) {

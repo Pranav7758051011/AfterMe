@@ -85,10 +85,14 @@ router.get('/stats', async (req: AuthenticatedRequest, res: Response) => {
 // GET /api/memories/:id
 router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
   try {
+    const userId = req.userId || config.defaultUserId;
     const id = String(req.params.id);
     const memory = await firestoreRepo.getById(id);
     if (!memory) {
       return res.status(404).json({ error: 'Memory not found in Firestore.' });
+    }
+    if (memory.user_id !== userId) {
+      return res.status(403).json({ error: 'Forbidden: Access denied to foreign user memory.' });
     }
     return res.json({ memory });
   } catch (error: any) {
@@ -99,17 +103,22 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
 // PATCH /api/memories/:id/status
 router.patch('/:id/status', async (req: AuthenticatedRequest, res: Response) => {
   try {
+    const userId = req.userId || config.defaultUserId;
     const { status } = req.body;
     if (!status) {
       return res.status(400).json({ error: 'Status is required.' });
     }
 
     const id = String(req.params.id);
-    const updated = await firestoreRepo.updateStatus(id, status as MemoryStatus);
-    if (!updated) {
+    const existing = await firestoreRepo.getById(id);
+    if (!existing) {
       return res.status(404).json({ error: 'Memory not found.' });
     }
+    if (existing.user_id !== userId) {
+      return res.status(403).json({ error: 'Forbidden: Cannot update foreign user memory.' });
+    }
 
+    const updated = await firestoreRepo.updateStatus(id, status as MemoryStatus);
     return res.json({ success: true, memory: updated });
   } catch (error: any) {
     return res.status(500).json({ error: 'Failed to update memory status.', details: error.message });
@@ -119,11 +128,17 @@ router.patch('/:id/status', async (req: AuthenticatedRequest, res: Response) => 
 // PATCH /api/memories/:id
 router.patch('/:id', async (req: AuthenticatedRequest, res: Response) => {
   try {
+    const userId = req.userId || config.defaultUserId;
     const id = String(req.params.id);
-    const updated = await firestoreRepo.update(id, req.body);
-    if (!updated) {
+    const existing = await firestoreRepo.getById(id);
+    if (!existing) {
       return res.status(404).json({ error: 'Memory not found.' });
     }
+    if (existing.user_id !== userId) {
+      return res.status(403).json({ error: 'Forbidden: Cannot update foreign user memory.' });
+    }
+
+    const updated = await firestoreRepo.update(id, req.body);
     return res.json({ success: true, memory: updated });
   } catch (error: any) {
     return res.status(500).json({ error: 'Failed to update memory.', details: error.message });
@@ -133,7 +148,16 @@ router.patch('/:id', async (req: AuthenticatedRequest, res: Response) => {
 // DELETE /api/memories/:id
 router.delete('/:id', async (req: AuthenticatedRequest, res: Response) => {
   try {
+    const userId = req.userId || config.defaultUserId;
     const id = String(req.params.id);
+    const existing = await firestoreRepo.getById(id);
+    if (!existing) {
+      return res.status(404).json({ error: 'Memory not found.' });
+    }
+    if (existing.user_id !== userId) {
+      return res.status(403).json({ error: 'Forbidden: Cannot delete foreign user memory.' });
+    }
+
     const success = await firestoreRepo.delete(id);
     return res.json({ success, message: 'Memory deleted from Firestore.' });
   } catch (error: any) {
