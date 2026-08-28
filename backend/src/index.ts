@@ -62,6 +62,18 @@ app.get('/', (req: Request, res: Response) => {
   });
 });
 
+// Global Error Handler Middleware
+app.use((err: any, req: Request, res: Response, next: any) => {
+  console.error('[Unhandled Server Error]', err?.message || err);
+  if (err instanceof SyntaxError && 'body' in err) {
+    return res.status(400).json({ error: 'Invalid JSON payload received in request body.' });
+  }
+  return res.status(500).json({
+    error: 'An internal server error occurred.',
+    message: err?.message || 'Unknown error'
+  });
+});
+
 // Start standalone Express server
 if (process.env.NODE_ENV !== 'test') {
   app.listen(config.port, config.host, () => {

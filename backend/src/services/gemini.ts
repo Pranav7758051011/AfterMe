@@ -132,7 +132,8 @@ export function fallbackExtract(text: string, userLocation?: string, imageUrl?: 
   // Parking spot detection
   let detectedLocation: string | null = null;
   if (lower.includes('parked') || lower.includes('parking')) {
-    const bayMatch = safeText.match(/(?:bay|spot|slot|section|pillar|level|floor)\s*([a-z0-9\-]+)/i);
+    const bayMatch = safeText.match(/(?:bay|spot|slot|section|pillar)\s*([a-z0-9\-]+)/i) ||
+                     safeText.match(/(?:level|floor)\s*([a-z0-9\-]+)/i);
     if (bayMatch) {
       detectedLocation = `Parking Spot ${bayMatch[1].toUpperCase()}`;
     } else {
