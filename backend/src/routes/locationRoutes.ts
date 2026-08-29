@@ -102,4 +102,29 @@ router.post('/alerts/:id/dismiss', async (req: AuthenticatedRequest, res: Respon
   }
 });
 
+// POST /api/location/beacon - BLE Beacon RSSI signal ingestion & indoor micro-zone resolution
+router.post('/beacon', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { signals } = req.body;
+    if (!signals || !Array.isArray(signals)) {
+      return res.status(400).json({ error: 'signals array is required.' });
+    }
+
+    const { resolveIndoorPosition } = await import('../services/indoorLocalization');
+    const result = resolveIndoorPosition(signals);
+
+    const userId = req.userId || config.defaultUserId;
+    if (result.resolvedZone && result.confidence > 0.4) {
+      await firestoreRepo.updateUserLocation(userId, result.resolvedZone);
+    }
+
+    return res.json({
+      success: true,
+      indoor_position: result
+    });
+  } catch (error: any) {
+    return res.status(500).json({ error: 'Failed to resolve indoor position.', details: error.message });
+  }
+});
+
 export default router;

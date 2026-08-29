@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { config } from '../config';
 import { Memory, MemoryType, RiskLevel, MemoryStatus } from '../database/memoryRepo';
 import { metricsTracker } from './metricsTracker';
+import { rankCandidateMemories, generateGeminiEmbedding } from './vectorRetrieval';
 
 export interface ExtractedMemory {
   memory_type: MemoryType;
@@ -426,7 +427,12 @@ export async function askAfterMeWithGemini(
 
   try {
     const ai = new GoogleGenAI({ apiKey });
-    const memoryContext = memories.map((m, idx) => ({
+    
+    // Semantic Vector + BM25 Hybrid Pre-filtering (scales efficiently to thousands of memories)
+    const rankedCandidates = await rankCandidateMemories(safeQuestion, memories, 8);
+    const candidateMemories = rankedCandidates.length > 0 ? rankedCandidates.map(rc => rc.memory) : memories;
+
+    const memoryContext = candidateMemories.map((m, idx) => ({
       index: idx + 1,
       id: m.id,
       original_text: m.original_text,

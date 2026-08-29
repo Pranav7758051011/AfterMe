@@ -20,10 +20,12 @@ console.log('================================================================\n'
 
 const TEST_SUITES = [
   { file: 'tests/ai-validation.test.js', name: 'AI Grounding & Output Validation' },
+  { file: 'tests/vector-retrieval.test.js', name: 'Vector Embeddings & Hybrid RAG Retrieval' },
   { file: 'tests/gps-reliability.test.js', name: 'GPS & Geofence Reliability' },
   { file: 'tests/alert-protection.test.js', name: 'Alert Deduplication & State Tracking' },
   { file: 'tests/security-isolation.test.js', name: 'Security & Multi-Tenant Isolation' },
   { file: 'tests/resilience-fallback.test.js', name: 'Failure Modes & Offline Resilience' },
+  { file: 'tests/indoor-localization.test.js', name: 'Indoor BLE Micro-Localization & Path Loss' },
   { file: 'tests/metrics-observability.test.js', name: 'Performance & Cost Observability' },
   { file: 'tests/multimodal-tts.test.js', name: 'Multimodal Vision & Audio Verification' },
   { file: 'tests/cross-platform.test.js', name: 'Cross-Platform Web & Mobile Synchronization' },
