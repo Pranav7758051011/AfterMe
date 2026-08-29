@@ -1,285 +1,180 @@
-<div align="center">
+# AfterMe
 
-# 🧠 AfterMe
-### *The Proactive AI Ambient Memory Layer for Physical Belongings & Context*
+Proactive AI memory assistant that pairs multimodal memory logging with context-grounded conversational retrieval and GPS geofence departure alerts.
 
-**Never leave anything behind. An ambient intelligence layer that connects physical spaces, GPS geofencing, and Google Gemini Multimodal AI.**
-
-<br/>
-
-[![Firebase](https://img.shields.io/badge/Firebase-Firestore_%26_Auth-FFCA28?style=for-the-badge&logo=firebase&logoColor=black)](https://firebase.google.com/)
-[![Google Gemini](https://img.shields.io/badge/AI_Engine-Gemini_2.5_Flash-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://deepmind.google/technologies/gemini/)
-[![TypeScript](https://img.shields.io/badge/Language-TypeScript_5.7-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![React](https://img.shields.io/badge/Frontend-React_19_+_Vite-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
-[![React Native](https://img.shields.io/badge/Mobile-Expo_React_Native-000020?style=for-the-badge&logo=expo&logoColor=white)](https://expo.dev/)
-[![Leaflet](https://img.shields.io/badge/Maps-Leaflet_Dark_Matter-199900?style=for-the-badge&logo=leaflet&logoColor=white)](https://leafletjs.com/)
-[![License](https://img.shields.io/badge/License-Proprietary_Restricted-red.svg?style=for-the-badge)](./LICENSE)
-
-<br/>
-
-[🚀 **Explore Features**](#-key-features) • [🏛️ **Architecture**](#️-system-architecture) • [📖 **B.Tech Capstone Report**](./docs/BTECH_PROJECT_REPORT.md) • [🎬 **Live Demo Walkthrough**](#-1-minute-golden-demo-for-judges) • [👥 **The Team**](#-the-team--authors) • [🔒 **License**](#-proprietary-license)
+[![Test Suite](https://github.com/rajdeep-r24/AfterMe/actions/workflows/test.yml/badge.svg)](https://github.com/rajdeep-r24/AfterMe/actions/workflows/test.yml)
+[![Node.js](https://img.shields.io/badge/Node.js-v20+-339933.svg?logo=nodedotjs&logoColor=white)](https://nodejs.org)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6.svg?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![Google Gemini](https://img.shields.io/badge/AI-Gemini_2.5_Flash-4285F4.svg?logo=google&logoColor=white)](https://ai.google.dev)
+[![Firebase](https://img.shields.io/badge/Firebase-Firestore_%26_Auth-FFCA28.svg?logo=firebase&logoColor=black)](https://firebase.google.com)
 
 ---
 
-</div>
+## Overview
 
-<br/>
-
-## 📖 B.Tech Capstone Project Report & Thesis
-
-> 🎓 For a complete academic defense, mathematical derivation of geodesic Haversine distance, Zod grounding guardrails, security threat models, and quantitative benchmark evaluation tables, read the comprehensive report:
->
-> 📄 [**AfterMe B.Tech Capstone Project Report & Architecture Documentation (docs/BTECH_PROJECT_REPORT.md)**](./docs/BTECH_PROJECT_REPORT.md)
+AfterMe helps users keep track of physical belongings, tasks, and locations. Instead of requiring manual search through static notes, the system:
+1. **Extracts structured entities** from free-form text or photos (object, location, risk level, deadlines) using Gemini 2.5 Flash and validates the payload with Zod schemas.
+2. **Answers queries with grounded citations**, matching user questions against stored memories and explicitly rejecting unknown items.
+3. **Monitors spatial boundaries**, computing distance between the user's current GPS position and logged memory coordinates via the Haversine formula ($R = 6,371\text{ km}$) and triggering departure warnings when moving beyond a 60-meter radius.
 
 ---
 
-## 🌟 The Problem & The AfterMe Solution
-
-| Traditional Note / Reminder Apps ❌ | The AfterMe Proactive Ambient Layer ⚡ |
-| :--- | :--- |
-| **Passive**: You must remember to open the app and manually search. | **Proactive**: Automatically monitors your GPS position and alerts you *before* you leave a place. |
-| **No spatial awareness**: Notes don't understand where you are physically located. | **GPS Geofenced**: Dynamically calculates distance in meters and draws a safety radius around items. |
-| **Hallucination-prone AI**: Standard chatbots often guess where items are. | **Strict Grounding**: Context-constrained retrieval designed to minimize unsupported responses. Retrieves recorded memories with verifiable citations. |
-| **Single-format**: Text-only notes with no visual spatial context. | **Multimodal Vision & Voice**: Snap photos of items/parking spots + hear AI voice spoken aloud. |
-
----
-
-## ⚡ Key Features
-
-```text
-┌──────────────────────────────────────────────────────────────────────────────────────────┐
-│                                AFTERME CAPABILITY MATRIX                                 │
-├───────────────────────────────┬──────────────────────────────────────────────────────────┤
-│ 🧠 Gemini Multimodal Vision   │ • Structured entity extraction (object, location, risk)  │
-│                               │ • 📸 Photo memory capture (reads parking bays, lockers)  │
-│                               │ • Context-grounded conversational retrieval with citations│
-│                               │ • Contextual linking (e.g., Passport ↔ Visa Appointment) │
-├───────────────────────────────┼──────────────────────────────────────────────────────────┤
-│ 🛰️ Real-Time GPS & Map Radar  │ • Auto-detects physical latitude & longitude via browser │
-│                               │ • Interactive dark-matter radar beacon & geofence rings  │
-│                               │ • 🎯 Glowing target area circle when asking for items    │
-│                               │ • 1-Click 100m / 500m departure simulator steppers       │
-├───────────────────────────────┼──────────────────────────────────────────────────────────┤
-│ 🔐 Firebase Cloud Backend     │ • Cloud Firestore collections (memories, alerts, users)  │
-│                               │ • Google Sign-In & Email/Password Authentication         │
-│                               │ • Multi-tenant user data isolation & security rules      │
-├───────────────────────────────┼──────────────────────────────────────────────────────────┤
-│ 🔊 AI Voice Assistant (TTS)   │ • Text-to-Speech natural voice answer playback           │
-│                               │ • Real-time microphone speech-to-text input              │
-├───────────────────────────────┼──────────────────────────────────────────────────────────┤
-│ 🚗 Smart Parking Finder       │ • 1-Click "Parked Car Here" widget with GPS coordinates  │
-│                               │ • Automatic vehicle marker & walking distance calculator │
-├───────────────────────────────┼──────────────────────────────────────────────────────────┤
-│ 📱 True Cross-Platform        │ • Obsidian Glassmorphism Web App (localhost:5173)        │
-│                               │ • React Native Expo Mobile App (iOS / Android / Web)     │
-└───────────────────────────────┴──────────────────────────────────────────────────────────┘
-```
-
----
-
-## 🏛️ System Architecture
+## System Architecture
 
 ```mermaid
 flowchart TB
-    subgraph UI["📱 Multi-Platform Client Layer"]
-        WEB["🌐 Web Dashboard<br/>(React 19 + Leaflet + Vite)"]
-        MOB["📱 Mobile App<br/>(React Native + Expo)"]
+    subgraph Clients["Clients"]
+        WEB["Web Application (React 19 + Leaflet + Vite)"]
+        MOB["Mobile Application (React Native + Expo)"]
     end
 
-    subgraph Server["⚡ Node.js & TypeScript Backend Engine"]
-        ROUTER["REST API Router (/api)"]
-        GEO["🛰️ Proactive Geofencing Engine<br/>(Haversine Distance Math)"]
-        GROUND["🛡️ Grounded Retrieval Layer<br/>(Hallucination-Mitigation Guardrails)"]
+    subgraph Backend["Express Backend API (:3001)"]
+        ROUTER["REST API Routes (/api)"]
+        VAL["Zod Schema Validation Middleware"]
+        GEO["Geofence Evaluator (Haversine Formula)"]
+        DEDUP["Alert Deduplication State Machine"]
     end
 
-    subgraph Cloud["🔥 Google Firebase & Cloud AI"]
-        FS[("🔥 Cloud Firestore<br/>(memories, alerts, user_state)")]
-        AUTH["🔐 Firebase Auth<br/>(Google & Email/Password)"]
-        GEMINI["🧠 Google Gemini API<br/>(gemini-2.5-flash Multimodal)"]
+    subgraph Services["External & Cloud Services"]
+        GEMINI["Google Gemini 2.5 Flash API"]
+        FS[("Cloud Firestore")]
+        AUTH["Firebase Authentication"]
     end
 
-    WEB <-->|HTTP / WebSockets| ROUTER
-    MOB <-->|HTTP REST / FCM| ROUTER
-    ROUTER <-->|Token Verify| AUTH
-    ROUTER <-->|Admin SDK CRUD| FS
-    ROUTER <-->|Multimodal Extraction| GEMINI
-    ROUTER <-->|GPS Distance Check| GEO
-    GEO -->|Trigger Departure Alert| FS
+    Clients <-->|HTTP / JSON| ROUTER
+    ROUTER --> VAL
+    VAL --> GEMINI
+    ROUTER --> GEO
+    GEO --> DEDUP
+    ROUTER <--> FS
+    ROUTER <--> AUTH
 ```
 
 ---
 
-## 🎬 1-Minute Golden Demo (For Judges & Teammates)
+## Technical Mechanisms
 
-Experience the complete proactive flow in 4 quick steps:
-
-```text
- 1. CREATE MEMORY        2. SIMULATE DEPARTURE      3. PROACTIVE ALERT        4. ASK & HEAR VOICE
-┌─────────────────┐     ┌─────────────────────┐    ┌────────────────────┐    ┌─────────────────────┐
-│ Speak:          │     │ Click:              │    │ 🚨 System Warning: │    │ Ask:                │
-│ "I left my      │ ──► │ "[ Leave Conference │ ─► │ "You left your     │ ─► │ "Where is my        │
-│ black laptop    │     │   Room (150m away) ]│    │  laptop charger in │    │  charger?"          │
-│ charger in the  │     │                     │    │  Conference Room!" │    │ 🎯 Circles map area │
-│ conference room"│     │ Radar marker moves  │    │ 60m geofence alarm │    │ 🔊 Speaks aloud     │
-└─────────────────┘     └─────────────────────┘    └────────────────────┘    └─────────────────────┘
+### 1. Structured Entity Extraction & Validation
+Incoming prompts sent to `POST /api/memories` are parsed by Gemini 2.5 Flash. The output is sanitized (removing markdown code fences) and validated using Zod against `MemoryExtractionSchema`:
+```typescript
+z.object({
+  memory_type: z.enum(['belonging', 'task', 'document', 'event']),
+  object: z.string(),
+  location: z.string(),
+  importance: z.enum(['low', 'medium', 'high']),
+  risk_level: z.enum(['low', 'medium', 'high', 'critical']),
+  deadline: z.string().optional(),
+  action_required: z.boolean(),
+  summary: z.string()
+});
 ```
+If the Gemini API key is not configured or network connectivity fails, a deterministic regex-based fallback extractor processes common patterns without throwing an unhandled exception.
+
+### 2. Context-Grounded Retrieval
+When querying `POST /api/ask`, user memories from Firestore are provided as context to Gemini 2.5 Flash. The model is constrained to cite only memory IDs present in the prompt. The backend cross-checks returned IDs against authentic database records—if no citation matches or the item was never logged, the API returns `has_match: false` with an explicit notice instead of guessing.
+
+### 3. Geofence Distance Calculation & Deduplication
+Spatial departure checks use the standard Haversine formula to compute great-circle distance over WGS-84 coordinates:
+
+$$\Delta\sigma = 2 \arcsin\sqrt{\sin^2\left(\frac{\Delta\phi}{2}\right) + \cos\phi_1\cos\phi_2\sin^2\left(\frac{\Delta\lambda}{2}\right)}$$
+
+$$d = R \cdot \Delta\sigma \quad (R = 6,371,000\text{ m})$$
+
+An in-memory state tracker (`activeDepartures`) records transition states (`inside` $\rightarrow$ `outside`). A departure alert fires once upon crossing the 60m threshold. Subsequent GPS ticks outside suppress duplicates, and the detector re-arms only after the user returns inside the geofence radius.
 
 ---
 
-## 🚀 Quickstart Guide
+## Quickstart
 
-### 1. Clone & Install Dependencies
+### Prerequisites
+- Node.js 20+
+- npm 10+
+
+### 1. Installation
 ```bash
-# Clone the repository
 git clone https://github.com/rajdeep-r24/AfterMe.git
 cd AfterMe
-
-# Install monorepo dependencies
 npm install
+npm --prefix backend install
+npm --prefix apps/web install
 ```
 
-### 2. Environment Configuration
-Copy `.env.example` to `.env` and `backend/.env`:
+### 2. Environment Setup
+Copy the example environment files:
 ```bash
 cp .env.example .env
 cp backend/.env.example backend/.env
 ```
-* **Firebase Project**: Pre-configured with `afterme-ai-app` (Project Number: `377448090451`).
-* *(Optional)* Add your `GEMINI_API_KEY` in `.env`. An intelligent offline fallback engine is built-in so all demos work reliably even offline!
+*Note: A `GEMINI_API_KEY` is optional for local development. If omitted, the deterministic fallback engine executes automatically.*
 
-### 3. Run the Development Server
+### 3. Start Development Servers
 ```bash
 npm run dev
 ```
-* 🌐 **Web Dashboard**: [http://localhost:5173](http://localhost:5173)
-* 🧠 **Backend API**: [http://localhost:3001](http://localhost:3001)
+- **Web App**: [http://localhost:5173](http://localhost:5173)
+- **Backend API**: [http://localhost:3001](http://localhost:3001)
 
-### 4. Run the Mobile App (Expo)
+To run the mobile app:
 ```bash
 npm run mobile
 ```
-Press `w` for browser preview or scan the QR code with **Expo Go** on your physical phone!
 
-### 5. Run Master Test Harness & Quantitative Benchmark
+---
+
+## Testing & Verification
+
+All test suites run locally and in GitHub Actions CI (`.github/workflows/test.yml`):
+
 ```bash
-# 1. Run Complete Master Test Harness (9 Suites, 100% Pass)
+# Run all test suites
 npm test
 
-# 2. Run Reproducible Quantitative Benchmark (N=26 Ground Truth Samples)
+# Run reproducible quantitative benchmark (N=26 samples)
 npm run test:benchmark
 
-# 3. Individual Modular Test Suites
-npm run test:ai          # Zod validation & JSON sanitization
-npm run test:gps         # WGS-84 coordinate validation & Haversine distance
-npm run test:alerts      # Geofence deduplication & re-entry state tracking
-npm run test:security    # Multi-tenant data isolation & 403 route guards
-npm run test:resilience  # Failure modes & offline heuristic fallback
-npm run test:metrics     # Real-time latency tracking & token cost observability
-npm run test:e2e         # 12-Step Full Golden Demo
+# Individual test suites
+npm run test:ai          # Zod validation and JSON sanitization
+npm run test:gps         # Haversine distance and coordinate range validation
+npm run test:alerts      # State machine deduplication and re-entry
+npm run test:security    # Multi-tenant data isolation and 403 authorization
+npm run test:resilience  # Failure modes and offline heuristic fallback
+npm run test:metrics     # Telemetry counters and latency tracking
+npm run test:e2e         # End-to-end integration workflow
 ```
 
----
+### Benchmark Results ($N = 26$ Ground-Truth Samples)
 
-## 📊 Quantitative Evaluation Scorecard
+The benchmark evaluates the system against 26 predefined test cases across extraction, retrieval, and geofencing:
 
-```text
-================================================================
-🏆 AFTERME SYSTEMATIC BENCHMARK SCORECARD
-================================================================
-| Metric Dimension                  | Measured Score | Academic Target | Status |
-| :-------------------------------- | :------------- | :-------------- | :----- |
-| Memory Type Classification        | 100.0%          | >= 90.0%        | ✅ PASS |
-| Object Entity Extraction          | 100.0%          | >= 90.0%        | ✅ PASS |
-| Spatial Location Extraction       | 100.0%          | >= 85.0%        | ✅ PASS |
-| Grounded Retrieval (Known Items)  | 100.0%          | >= 95.0%        | ✅ PASS |
-| Hallucination Rejection (Unknown) | 100.0%          | 100.0%          | ✅ PASS |
-| Geofence Precision                | 100.0%          | >= 95.0%        | ✅ PASS |
-| Geofence Recall                   | 100.0%          | >= 95.0%        | ✅ PASS |
-| Mean Extraction Latency           | 290 ms         | < 500 ms        | ✅ PASS |
-| Mean Retrieval Latency            | 276 ms         | < 500 ms        | ✅ PASS |
-================================================================
-```
+| Benchmark Dimension | Sample Size | Passed / Total | Result | Testing Mode |
+| :--- | :---: | :---: | :---: | :--- |
+| Memory Entity Extraction | $N = 10$ | 10 / 10 | Pass | Gemini 2.5 Flash / Fallback Engine |
+| Grounded Retrieval (Known Items) | $N = 6$ | 6 / 6 | Pass | Verified DB Citations |
+| Unknown Entity Rejection | $N = 4$ | 4 / 4 | Pass | Explicit Non-Match Response |
+| Geofence Departure Precision | $N = 6$ | 6 / 6 | Pass | Haversine Geodesic Math ($R=6371$km) |
+
+*Tested against the backend HTTP API at `http://localhost:3001`.*
 
 ---
 
-## 📡 REST API Reference
+## Known Limitations
 
-| Method | Endpoint | Description |
-| :--- | :--- | :--- |
-| `POST` | `/api/memories` | Natural language / multimodal photo memory extraction via Gemini & Firestore save |
-| `GET` | `/api/memories` | Filtered list of user memories (`belonging`, `task`, `document`, `potentially_forgotten`) |
-| `GET` | `/api/memories/:id` | Fetch specific memory by ID (Enforces strict user ownership) |
-| `PATCH`| `/api/memories/:id/status` | Update memory status (`retrieved`, `completed`, `active`) |
-| `DELETE`| `/api/memories/:id` | Delete memory from Firestore (Enforces strict user ownership) |
-| `POST` | `/api/ask` | Grounded conversational retrieval constrained by stored memory citations |
-| `POST` | `/api/location/gps` | Real-time GPS coordinate telemetry with Haversine distance geofence calculation |
-| `POST` | `/api/location/change` | Simulate location departure and evaluate left-behind items |
-| `GET` | `/api/location/alerts` | Active proactive alerts stream for current user |
-| `POST` | `/api/location/alerts/:id/dismiss` | Dismiss active alert in Firestore |
-| `GET` | `/api/metrics` | Real-time system telemetry, latency percentiles, and Gemini token cost observability |
-| `POST` | `/api/demo/seed-golden` | 1-Click seed Golden Demo persona into Firestore |
-| `POST` | `/api/demo/reset` | Clean slate reset for new demo or evaluation session |
+- **Background Geofencing**: Departure detection currently relies on GPS coordinates pushed by the active client application (foreground polling or manual simulation). Operating system-level background location daemons with energy-efficient wakeups (e.g., iOS Significant-Change / Android Geofencing API) are not yet implemented for closed-app execution.
+- **Indoor GPS Attenuation**: Consumer GPS accuracy degrades indoors (often $\pm 50\text{m}$ to $200\text{m}$). The backend discards GPS readings with accuracy $>150\text{m}$ to prevent false departure alarms. Room-level distinctions rely on user text/photo cues rather than micro-positioning.
+- **Gemini API Token Consumption**: Each memory extraction consumes approximately 250 input tokens and 120 output tokens ($\approx \$0.000075$ USD per request on the Gemini 2.5 Flash pay-as-you-go tier).
+- **Offline Fallback Scope**: When running offline, the deterministic heuristic extractor supports single-clause entity and risk recognition. Multi-hop conversational reasoning and complex query synthesis require an active connection to the Gemini API.
 
 ---
 
-## 👥 The Team & Authors
+## Authors
 
-<table align="center" width="100%">
-  <tr>
-    <td align="center" width="33%">
-      <a href="https://github.com/Pranav7758051011">
-        <img src="https://avatars.githubusercontent.com/u/107771746?v=4" width="100px" style="border-radius:50%;" onerror="this.src='https://github.com/Pranav7758051011.png'" /><br />
-        <sub><b>Pranav Bade</b></sub>
-      </a>
-      <br />
-      <sub>🧠 Co-Founder & Systems Lead</sub>
-      <br />
-      <sub><i>Core Architecture & Backend</i></sub>
-      <br />
-      <a href="https://github.com/Pranav7758051011"><img src="https://img.shields.io/badge/GitHub-Pranav7758051011-181717?style=flat-square&logo=github" /></a>
-    </td>
-    <td align="center" width="33%">
-      <a href="https://github.com/rajdeep-r24">
-        <img src="https://ui-avatars.com/api/?name=Rajdeep+Rathod&background=10b981&color=fff&size=200&bold=true" width="100px" style="border-radius:50%;" /><br />
-        <sub><b>Rajdeep Rathod</b></sub>
-      </a>
-      <br />
-      <sub>⚡ Co-Founder & AI Architect</sub>
-      <br />
-      <sub><i>Spatial Intelligence & Cloud</i></sub>
-      <br />
-      <a href="https://github.com/rajdeep-r24"><img src="https://img.shields.io/badge/GitHub-rajdeep--r24-181717?style=flat-square&logo=github" /></a>
-    </td>
-    <td align="center" width="33%">
-      <a href="https://github.com/Vedant-git-333">
-        <img src="https://github.com/Vedant-git-333.png" width="100px" style="border-radius:50%;" /><br />
-        <sub><b>Vedant Soni</b></sub>
-      </a>
-      <br />
-      <sub>🎨 Co-Founder & Product Lead</sub>
-      <br />
-      <sub><i>Mobile, Vision & UX</i></sub>
-      <br />
-      <a href="https://github.com/Vedant-git-333"><img src="https://img.shields.io/badge/GitHub-Vedant--git--333-181717?style=flat-square&logo=github" /></a>
-    </td>
-  </tr>
-</table>
+- **Pranav Bade** ([@Pranav7758051011](https://github.com/Pranav7758051011)) — Systems Lead & Core Architecture
+- **Rajdeep Rathod** ([@rajdeep-r24](https://github.com/rajdeep-r24)) — AI Architect & Spatial Intelligence
+- **Vedant Soni** ([@Vedant-git-333](https://github.com/Vedant-git-333)) — Product Lead & UX/Mobile
 
 ---
 
-## 🔒 Proprietary License
+## License
 
-**Copyright &copy; 2026 Pranav Bade, Rajdeep Rathod, and Vedant Soni. All Rights Reserved.**
-
-> **RESTRICTED SOURCE-AVAILABLE LICENSE**:
-> No person, organization, or third party may use, copy, modify, adapt, merge, publish, distribute, sublicense, or sell copies of this software or any part of its source code without the **explicit, prior written permission signed by all three authors (Pranav Bade, Rajdeep Rathod, and Vedant Soni)**.
-> 
-> Evaluation is permitted solely by designated evaluators of the **Google Gemini AI Hackathon**.
-> 
-> See the complete legal terms in the [`LICENSE`](./LICENSE) file.
-
-<br/>
-
-<div align="center">
-  <sub>Built with 💙 for the Google Gemini AI Hackathon</sub>
-</div>
+Copyright &copy; 2026 Pranav Bade, Rajdeep Rathod, Vedant Soni. All rights reserved.  
+Source-available for evaluation under the terms in the [`LICENSE`](./LICENSE) file.
